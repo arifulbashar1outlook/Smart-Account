@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Plus, Lock, ArrowDownCircle, Wallet } from 'lucide-react';
+import { Eye, EyeOff, Plus, Lock, ArrowDownCircle, Wallet, Pencil } from 'lucide-react';
 import { Transaction, AccountType, Category } from '../types';
 
 interface SalaryManagerProps {
@@ -28,11 +28,18 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
   const handleSave = () => {
     localStorage.setItem('smartspend_salary_pref', salary);
     setIsEditing(false);
-    setIsVisible(false);
+    setIsVisible(true); // Auto-show after edit so user can see what they typed
   };
 
   const handleAddToMonth = () => {
     if (!salary) return;
+
+    // Protection against accidental touches
+    const confirmMsg = `Are you sure you want to add the monthly salary of Tk ${parseFloat(salary).toLocaleString()} to your ${salaryDestination} account?`;
+    if (!window.confirm(confirmMsg)) {
+        return;
+    }
+
     onAddTransaction({
       amount: parseFloat(salary),
       type: 'income',
@@ -88,11 +95,15 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
       <div className="p-6">
         {activeTab === 'salary' ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Monthly Salary Config</h4>
                <button
-                onClick={() => setIsVisible(!isVisible)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setIsVisible(!isVisible);
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                title={isVisible ? "Hide amount" : "Show amount"}
               >
                 {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -100,32 +111,37 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
             
             <div className="relative">
               {isEditing ? (
-                <div className="flex gap-2">
+                <div className="flex gap-2 animate-in fade-in zoom-in-95 duration-200">
                   <input
                     type="number"
                     value={salary}
                     onChange={(e) => setSalary(e.target.value)}
                     placeholder="Enter salary"
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    autoFocus
+                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                   <button
                     onClick={handleSave}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-sm"
                   >
                     Save
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <span className="text-xl font-bold text-gray-800 dark:text-white font-mono">
-                    {isVisible ? `Tk ${parseFloat(salary || '0').toLocaleString()}` : '****'}
-                  </span>
-                  <button
+                <div 
                     onClick={() => setIsEditing(true)}
-                    className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-                  >
-                    Edit
-                  </button>
+                    className="group flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-indigo-50 dark:hover:bg-gray-700 hover:border-indigo-200 dark:hover:border-indigo-900 transition-all active:scale-[0.99]"
+                >
+                  <div className="flex flex-col">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wider mb-1">Salary Amount</span>
+                      <span className="text-2xl font-bold text-gray-800 dark:text-white font-mono tracking-tight">
+                        {isVisible ? `Tk ${parseFloat(salary || '0').toLocaleString()}` : '•••••••'}
+                      </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    <span className="text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">Tap to edit</span>
+                    <Pencil className="w-4 h-4" />
+                  </div>
                 </div>
               )}
             </div>
@@ -135,7 +151,7 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
                <select
                   value={salaryDestination}
                   onChange={(e) => setSalaryDestination(e.target.value as AccountType)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="salary">Salary Account 🏦</option>
                   <option value="savings">Savings Account 🐷</option>
@@ -146,10 +162,10 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
             <button
               onClick={handleAddToMonth}
               disabled={!salary || isEditing}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-[0.98] transform"
+              className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-200 dark:shadow-none active:scale-[0.98] transform mt-2"
             >
-              <Plus className="w-4 h-4" />
-              Add Salary
+              <Plus className="w-5 h-5" />
+              Add to Current Month
             </button>
           </div>
         ) : (
@@ -163,7 +179,7 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
                     value={receivedAmount}
                     onChange={(e) => setReceivedAmount(e.target.value)}
                     placeholder="0.00"
-                    className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                </div>
              </div>
@@ -176,7 +192,7 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
                     value={receivedDesc}
                     onChange={(e) => setReceivedDesc(e.target.value)}
                     placeholder="e.g. Gift, Bonus"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   />
                </div>
                <div className="col-span-2">
@@ -184,7 +200,7 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
                  <select
                     value={receivedDestination}
                     onChange={(e) => setReceivedDestination(e.target.value as AccountType)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   >
                     <option value="cash">Cash 💵</option>
                     <option value="salary">Salary Account 🏦</option>
@@ -196,9 +212,9 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
              <button
               onClick={handleAddReceivedMoney}
               disabled={!receivedAmount}
-              className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-[0.98] transform"
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-200 dark:shadow-none active:scale-[0.98] transform mt-2"
             >
-              <Wallet className="w-4 h-4" />
+              <Wallet className="w-5 h-5" />
               Receive Money
             </button>
           </div>
