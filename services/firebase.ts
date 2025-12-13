@@ -3,17 +3,25 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOu
 import { getDatabase, ref, set, get, child } from "firebase/database";
 import { Transaction } from "../types";
 
+// Safe accessor for process.env that works even if process is undefined (via window polyfill or check)
+const getEnv = (key: string) => {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key];
+  }
+  return undefined;
+};
+
 // Helper to check if a string is non-empty
 const hasValue = (val: string | undefined) => val && val !== "" && val !== "undefined";
 
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
-  databaseURL: process.env.FIREBASE_DATABASE_URL
+  apiKey: getEnv('FIREBASE_API_KEY'),
+  authDomain: getEnv('FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('FIREBASE_APP_ID'),
+  databaseURL: getEnv('FIREBASE_DATABASE_URL')
 };
 
 // Initialize Firebase only if config exists and is valid
@@ -23,12 +31,12 @@ let db: any = null;
 
 try {
   // Check if critical keys exist before initializing
-  if (hasValue(process.env.FIREBASE_API_KEY) && hasValue(process.env.FIREBASE_AUTH_DOMAIN)) {
+  if (hasValue(firebaseConfig.apiKey) && hasValue(firebaseConfig.authDomain)) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getDatabase(app);
   } else {
-    console.warn("Firebase config missing or incomplete. Cloud sync features will be disabled. Please check your .env file or deployment settings.");
+    console.warn("Firebase config missing. Cloud sync disabled.");
   }
 } catch (error) {
   console.error("Firebase initialization failed:", error);

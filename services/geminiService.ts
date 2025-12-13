@@ -6,17 +6,8 @@ let genAI: GoogleGenAI | null = null;
 const getGenAI = () => {
   if (genAI) return genAI;
 
-  // process.env.API_KEY is replaced by Vite at build time.
-  // We check if it exists to avoid crashing new GoogleGenAI().
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey || apiKey === 'undefined') {
-    console.warn("Gemini API Key is missing or invalid.");
-    return null;
-  }
-
   try {
-    genAI = new GoogleGenAI({ apiKey });
+    genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
     return genAI;
   } catch (error) {
     console.error("Failed to initialize Gemini Client:", error);
@@ -28,7 +19,7 @@ export const getFinancialAdvice = async (transactions: Transaction[]): Promise<s
   const ai = getGenAI();
   
   if (!ai) {
-    return "AI service is not available. Please ensure the API_KEY is configured in your Vercel project settings.";
+    return "AI service is not available. Please ensure the API_KEY is configured.";
   }
 
   if (transactions.length === 0) {

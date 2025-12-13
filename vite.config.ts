@@ -3,23 +3,23 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  const env = loadEnv(mode, '.', '');
   
-  // Create an object containing all env vars starting with FIREBASE_
-  // and the specific API_KEY for GenAI.
-  // We ensure all values are JSON strings. If a value is missing, we use an empty string literal '""'.
-  const processEnv: Record<string, string> = {
+  // Build a define object that replaces process.env.KEY with the stringified value
+  const define: Record<string, string> = {
     'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
+    'process.env.NODE_ENV': JSON.stringify(mode),
   };
 
+  // Dynamically add all FIREBASE_ keys
   Object.keys(env).forEach(key => {
     if (key.startsWith('FIREBASE_')) {
-      processEnv[`process.env.${key}`] = JSON.stringify(env[key] || '');
+      define[`process.env.${key}`] = JSON.stringify(env[key] || '');
     }
   });
   
   return {
     plugins: [react()],
-    define: processEnv
+    define: define
   };
 });
