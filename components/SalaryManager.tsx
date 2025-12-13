@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, ArrowDownCircle, Wallet, UserMinus, UserPlus, ArrowRight } from 'lucide-react';
+import { Plus, ArrowDownCircle, Wallet, ArrowRight } from 'lucide-react';
 import { Transaction, AccountType, Category } from '../types';
 
 interface SalaryManagerProps {
@@ -7,7 +7,7 @@ interface SalaryManagerProps {
 }
 
 const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
-  const [activeTab, setActiveTab] = useState<'salary' | 'lending' | 'received'>('salary');
+  const [activeTab, setActiveTab] = useState<'salary' | 'received'>('salary');
   
   // Salary State
   const [salaryAmount, setSalaryAmount] = useState<string>('');
@@ -16,12 +16,6 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
   const [receivedAmount, setReceivedAmount] = useState('');
   const [receivedDesc, setReceivedDesc] = useState('');
   const [receivedDestination, setReceivedDestination] = useState<AccountType>('cash');
-
-  // Lending State
-  const [lendingMode, setLendingMode] = useState<'give' | 'recover'>('give');
-  const [lendPerson, setLendPerson] = useState('');
-  const [lendAmount, setLendAmount] = useState('');
-  const [lendAccount, setLendAccount] = useState<AccountType>('cash');
 
   const handleAddSalary = () => {
     if (!salaryAmount) return;
@@ -58,35 +52,6 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
     setReceivedDesc('');
   };
 
-  const handleLendingTransaction = () => {
-    if (!lendAmount || !lendPerson) return;
-
-    if (lendingMode === 'give') {
-        // Giving money is treated as an Expense (money leaving account)
-        onAddTransaction({
-            amount: parseFloat(lendAmount),
-            type: 'expense',
-            category: Category.LENDING,
-            description: `Lent to ${lendPerson}`,
-            date: new Date().toISOString().split('T')[0],
-            accountId: lendAccount
-        });
-    } else {
-        // Recovering money is treated as Income (money entering account)
-        onAddTransaction({
-            amount: parseFloat(lendAmount),
-            type: 'income',
-            category: Category.LENDING,
-            description: `Returned by ${lendPerson}`,
-            date: new Date().toISOString().split('T')[0],
-            accountId: lendAccount
-        });
-    }
-
-    setLendAmount('');
-    setLendPerson('');
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6 transition-colors duration-200">
       {/* Tabs */}
@@ -101,17 +66,6 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
         >
           <Wallet className="w-4 h-4" />
           Salary
-        </button>
-        <button
-          onClick={() => setActiveTab('lending')}
-          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors min-w-[100px] ${
-            activeTab === 'lending' 
-              ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-b-2 border-amber-600 dark:border-amber-400' 
-              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-          }`}
-        >
-          <UserMinus className="w-4 h-4" />
-          Lending
         </button>
         <button
           onClick={() => setActiveTab('received')}
@@ -157,95 +111,6 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
                   Will be added to <strong>Salary Account</strong>
                </p>
             </div>
-          </div>
-        )}
-
-        {/* --- LENDING TAB --- */}
-        {activeTab === 'lending' && (
-          <div className="space-y-4">
-             {/* Sub-tabs for Lending */}
-             <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
-                <button
-                    onClick={() => setLendingMode('give')}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
-                        lendingMode === 'give' 
-                        ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' 
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}
-                >
-                    <UserMinus className="w-3 h-3" />
-                    Lend (Give)
-                </button>
-                <button
-                    onClick={() => setLendingMode('recover')}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
-                        lendingMode === 'recover' 
-                        ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' 
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}
-                >
-                    <UserPlus className="w-3 h-3" />
-                    Received Back
-                </button>
-             </div>
-
-             <div className="space-y-3">
-                 <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        {lendingMode === 'give' ? 'Lending To' : 'Received From'}
-                    </label>
-                    <input
-                        type="text"
-                        value={lendPerson}
-                        onChange={(e) => setLendPerson(e.target.value)}
-                        placeholder="Person's Name"
-                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Amount</label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-gray-500 dark:text-gray-400 font-bold text-xs pt-0.5">Tk</span>
-                            <input
-                                type="number"
-                                value={lendAmount}
-                                onChange={(e) => setLendAmount(e.target.value)}
-                                placeholder="0.00"
-                                className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            {lendingMode === 'give' ? 'From Account' : 'To Account'}
-                        </label>
-                        <select
-                            value={lendAccount}
-                            onChange={(e) => setLendAccount(e.target.value as AccountType)}
-                            className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        >
-                            <option value="cash">Cash 💵</option>
-                            <option value="salary">Salary Acc 🏦</option>
-                            <option value="savings">Savings Acc 🐷</option>
-                        </select>
-                    </div>
-                 </div>
-
-                 <button
-                    onClick={handleLendingTransaction}
-                    disabled={!lendAmount || !lendPerson}
-                    className={`w-full flex items-center justify-center gap-2 text-white py-3 rounded-xl transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-md active:scale-[0.98] transform mt-2 ${
-                        lendingMode === 'give' 
-                        ? 'bg-red-600 hover:bg-red-700 shadow-red-200 dark:shadow-none' 
-                        : 'bg-green-600 hover:bg-green-700 shadow-green-200 dark:shadow-none'
-                    }`}
-                 >
-                    {lendingMode === 'give' ? <UserMinus className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-                    {lendingMode === 'give' ? 'Lend Money' : 'Confirm Repayment'}
-                 </button>
-             </div>
           </div>
         )}
 
