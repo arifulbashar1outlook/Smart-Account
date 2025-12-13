@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlusCircle, ShoppingBag, FileClock, BarChartBig, Calendar } from 'lucide-react';
+import { PlusCircle, ShoppingBag, FileClock, BarChartBig, Calendar, Receipt } from 'lucide-react';
 
 interface BottomNavigationProps {
   activeTab: string;
@@ -45,6 +45,18 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, onTabCha
              <BarChartBig className="w-6 h-6" />
           </div>
           <span className="text-[10px] font-medium">Bazar Report</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('expense-report')}
+          className={`flex flex-col items-center gap-1 transition-colors min-w-[3.5rem] ${
+            activeTab === 'expense-report' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+          }`}
+        >
+          <div className={`p-1 rounded-full ${activeTab === 'expense-report' ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
+             <Receipt className="w-6 h-6" />
+          </div>
+          <span className="text-[10px] font-medium">Expense Rpt</span>
         </button>
 
         <button

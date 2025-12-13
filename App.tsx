@@ -70,7 +70,7 @@ const App: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   
   // Navigation State
-  const [activeTab, setActiveTab] = useState<'input' | 'bazar' | 'bazar-report' | 'lending' | 'history' | 'dashboard'>('input');
+  const [activeTab, setActiveTab] = useState<'input' | 'bazar' | 'bazar-report' | 'expense-report' | 'lending' | 'history' | 'dashboard'>('input');
   const [dashboardPeriod, setDashboardPeriod] = useState<'month' | 'year'>('month');
   const [accountFilter, setAccountFilter] = useState<'all' | 'salary' | 'savings' | 'cash'>('all');
   
@@ -210,13 +210,16 @@ const App: React.FC = () => {
     if (user && db) {
       // Add to Cloud
       try {
-        await db.collection('users').doc(user.uid).collection('transactions').add({
+        // Firestore throws error if fields are undefined. JSON stringify/parse removes undefined fields.
+        const cleanTx = JSON.parse(JSON.stringify({
           ...newTx,
           date: newTx.date || new Date().toISOString()
-        });
+        }));
+        
+        await db.collection('users').doc(user.uid).collection('transactions').add(cleanTx);
       } catch (e) {
         console.error("Error saving to cloud", e);
-        alert("Failed to save transaction to cloud.");
+        alert("Failed to save transaction to cloud. See console for details.");
       }
     } else {
       // Add Locally
@@ -232,7 +235,9 @@ const App: React.FC = () => {
     if (user && db) {
       // Update in Cloud
       try {
-        await db.collection('users').doc(user.uid).collection('transactions').doc(updatedTx.id).update(updatedTx);
+        // Firestore throws error if fields are undefined.
+        const cleanTx = JSON.parse(JSON.stringify(updatedTx));
+        await db.collection('users').doc(user.uid).collection('transactions').doc(updatedTx.id).update(cleanTx);
       } catch (e) {
         console.error("Error updating in cloud", e);
         alert("Failed to update transaction in cloud.");
@@ -513,6 +518,121 @@ const App: React.FC = () => {
              </div>
           </div>
       );
+  };
+
+  const ExpenseReportPage = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Filter for ALL expenses (including Bazar which is type='expense')
+    const expenseTxs = transactions.filter(t => t.type === 'expense');
+    
+    const thisMonthTxs = expenseTxs.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    const totalSpent = thisMonthTxs.reduce((sum, t) => sum + t.amount, 0);
+
+    // Group by day with items list
+    const dailyData = useMemo(() => {
+        const groups: Record<string, { total: number, items: Transaction[] }> = {};
+        thisMonthTxs.forEach(t => {
+            const dateKey = t.date.split('T')[0]; // YYYY-MM-DD
+            if (!groups[dateKey]) {
+                groups[dateKey] = { total: 0, items: [] };
+            }
+            groups[dateKey].total += t.amount;
+            groups[dateKey].items.push(t);
+        });
+        
+        return Object.entries(groups)
+          .map(([date, data]) => ({ date, ...data }))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [thisMonthTxs]);
+
+    return (
+        <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
+           <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Receipt className="w-6 h-6 text-purple-500" />
+                  Expense Report
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400">Monthly Analysis: {now.toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}</p>
+           </div>
+
+           <div className="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-xl border border-purple-100 dark:border-purple-800 mb-8 flex flex-col items-center justify-center text-center">
+               <p className="text-sm text-purple-600 dark:text-purple-400 font-medium mb-2 uppercase tracking-wide">Total Expenses This Month</p>
+               <p className="text-4xl font-extrabold text-purple-700 dark:text-purple-300">Tk {totalSpent.toLocaleString()}</p>
+           </div>
+
+           <div className="space-y-4">
+               <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                   <CalendarDays className="w-5 h-5 text-gray-500" />
+                   Daily Breakdown
+               </h3>
+               
+               {dailyData.length > 0 ? (
+                   <div className="space-y-4">
+                       {dailyData.map((day, idx) => {
+                           const dateObj = new Date(day.date);
+                           return (
+                               <div key={idx} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                   {/* Header */}
+                                   <div className="flex justify-between items-center p-4 bg-gray-50/50 dark:bg-gray-700/30 border-b border-gray-100 dark:border-gray-700">
+                                       <div className="flex items-center gap-4">
+                                           <div className="flex flex-col items-center justify-center bg-white dark:bg-gray-700 rounded-lg w-12 h-12 border border-gray-100 dark:border-gray-600 shadow-sm">
+                                               <span className="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase leading-none mb-0.5">
+                                                  {dateObj.toLocaleDateString('en-US', { month: 'short' })}
+                                               </span>
+                                               <span className="text-xl font-bold text-gray-800 dark:text-white leading-none">
+                                                  {dateObj.getDate()}
+                                               </span>
+                                           </div>
+                                           <div>
+                                               <p className="font-semibold text-gray-900 dark:text-white">
+                                                  {dateObj.toLocaleDateString('en-US', { weekday: 'long' })}
+                                               </p>
+                                               <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                  {day.items.length} items
+                                               </p>
+                                           </div>
+                                       </div>
+                                       <span className="font-bold text-purple-600 dark:text-purple-400 text-lg">
+                                           Tk {day.total.toLocaleString()}
+                                       </span>
+                                   </div>
+                                   
+                                   {/* List */}
+                                   <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                      {day.items.map((item, i) => (
+                                          <div key={item.id} className="flex justify-between items-center py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-colors">
+                                              <div className="flex items-center gap-3">
+                                                  <span className="text-xs font-medium text-gray-400 w-4">{i + 1}.</span>
+                                                  <div>
+                                                      <p className="text-sm text-gray-700 dark:text-gray-200">{item.description}</p>
+                                                      <p className="text-[10px] text-gray-400">{item.category}</p>
+                                                  </div>
+                                              </div>
+                                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                  {item.amount.toLocaleString()}
+                                              </span>
+                                          </div>
+                                      ))}
+                                   </div>
+                               </div>
+                           );
+                       })}
+                   </div>
+               ) : (
+                   <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                       <p className="text-gray-500">No expense records for this month.</p>
+                   </div>
+               )}
+           </div>
+        </div>
+    );
   };
 
   const DashboardView = ({ period }: { period: 'month' | 'year' }) => {
@@ -820,6 +940,7 @@ const App: React.FC = () => {
         {activeTab === 'input' && <InputPage />}
         {activeTab === 'bazar' && <BazarView transactions={transactions} onAddTransaction={handleAddTransaction} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} />}
         {activeTab === 'bazar-report' && <BazarReportPage />}
+        {activeTab === 'expense-report' && <ExpenseReportPage />}
         {activeTab === 'lending' && <LendingView transactions={transactions} onAddTransaction={handleAddTransaction} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} />}
         {activeTab === 'history' && <HistoryView transactions={transactions} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} />}
         {activeTab === 'dashboard' && <DashboardView period={dashboardPeriod} />}
