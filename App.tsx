@@ -417,37 +417,17 @@ const App: React.FC = () => {
 
       const totalSpent = thisMonthTxs.reduce((sum, t) => sum + t.amount, 0);
 
-      // Prepare daily data for chart
-      const dailyData = useMemo(() => {
-          const daysMap = new Map();
-          const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-          
-          for(let i=1; i<=daysInMonth; i++) {
-              daysMap.set(i, 0);
-          }
-
-          thisMonthTxs.forEach(t => {
-              const d = new Date(t.date).getDate();
-              daysMap.set(d, daysMap.get(d) + t.amount);
-          });
-
-          return Array.from(daysMap.entries()).map(([day, amount]) => ({
-              name: day.toString(),
-              amount
-          }));
-      }, [thisMonthTxs, currentMonth, currentYear]);
-
-      // Top Items (Simple grouping by description)
-      const topItems = useMemo(() => {
+      // Group by day for the list
+      const dailyTotals = useMemo(() => {
           const groups: Record<string, number> = {};
           thisMonthTxs.forEach(t => {
-              const name = t.description.toLowerCase().trim();
-              groups[name] = (groups[name] || 0) + t.amount;
+              const dateKey = t.date.split('T')[0]; // YYYY-MM-DD
+              groups[dateKey] = (groups[dateKey] || 0) + t.amount;
           });
+          
           return Object.entries(groups)
-            .sort((a,b) => b[1] - a[1])
-            .slice(0, 5)
-            .map(([name, amount]) => ({ name, amount }));
+            .map(([date, amount]) => ({ date, amount }))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       }, [thisMonthTxs]);
 
       return (
@@ -460,56 +440,53 @@ const App: React.FC = () => {
                 <p className="text-gray-500 dark:text-gray-400">Monthly Analysis: {now.toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}</p>
              </div>
 
-             <div className="grid grid-cols-2 gap-4 mb-8">
-                 <div className="bg-rose-50 dark:bg-rose-900/20 p-5 rounded-xl border border-rose-100 dark:border-rose-800">
-                     <p className="text-sm text-rose-600 dark:text-rose-400 font-medium mb-1">Total Spent</p>
-                     <p className="text-2xl font-bold text-rose-700 dark:text-rose-300">Tk {totalSpent.toLocaleString()}</p>
-                 </div>
-                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-xl border border-indigo-100 dark:border-indigo-800">
-                     <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium mb-1">Avg. Daily</p>
-                     <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-                        Tk {(totalSpent / (new Date().getDate())).toFixed(0)}
-                     </p>
-                 </div>
+             <div className="bg-rose-50 dark:bg-rose-900/20 p-6 rounded-xl border border-rose-100 dark:border-rose-800 mb-8 flex flex-col items-center justify-center text-center">
+                 <p className="text-sm text-rose-600 dark:text-rose-400 font-medium mb-2 uppercase tracking-wide">Total Spent This Month</p>
+                 <p className="text-4xl font-extrabold text-rose-700 dark:text-rose-300">Tk {totalSpent.toLocaleString()}</p>
              </div>
 
-             <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8">
-                 <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Daily Spending Trend</h3>
-                 <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dailyData}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" className="dark:stroke-gray-700" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 10}} interval={2} />
-                            <Tooltip 
-                                formatter={(value: number) => `Tk ${value.toFixed(0)}`}
-                                contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-                            />
-                            <Bar dataKey="amount" fill="#f43f5e" radius={[2, 2, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                 </div>
-             </div>
-
-             <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                 <h3 className="font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                     <PieChartIcon className="w-4 h-4 text-gray-400" />
-                     Top Expense Items
+             <div className="space-y-4">
+                 <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                     <CalendarDays className="w-5 h-5 text-gray-500" />
+                     Daily Breakdown
                  </h3>
-                 <div className="space-y-3">
-                     {topItems.length > 0 ? topItems.map((item, idx) => (
-                         <div key={idx} className="flex items-center justify-between">
-                             <div className="flex items-center gap-3">
-                                 <span className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 flex items-center justify-center text-xs font-bold">
-                                     {idx + 1}
-                                 </span>
-                                 <span className="capitalize text-gray-700 dark:text-gray-200 font-medium">{item.name}</span>
-                             </div>
-                             <span className="font-bold text-gray-900 dark:text-white">Tk {item.amount}</span>
-                         </div>
-                     )) : (
-                         <p className="text-center text-gray-400 text-sm py-4">No data available</p>
-                     )}
-                 </div>
+                 
+                 {dailyTotals.length > 0 ? (
+                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                         {dailyTotals.map((day, idx) => {
+                             const dateObj = new Date(day.date);
+                             return (
+                                 <div key={idx} className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                     <div className="flex items-center gap-4">
+                                         <div className="flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg w-12 h-12">
+                                             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                                {dateObj.toLocaleDateString('en-US', { month: 'short' })}
+                                             </span>
+                                             <span className="text-lg font-bold text-gray-800 dark:text-white leading-none">
+                                                {dateObj.getDate()}
+                                             </span>
+                                         </div>
+                                         <div>
+                                             <p className="font-medium text-gray-900 dark:text-white">
+                                                {dateObj.toLocaleDateString('en-US', { weekday: 'long' })}
+                                             </p>
+                                             <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {day.amount.toLocaleString()} BDT
+                                             </p>
+                                         </div>
+                                     </div>
+                                     <span className="font-bold text-gray-900 dark:text-white text-lg">
+                                         Tk {day.amount.toLocaleString()}
+                                     </span>
+                                 </div>
+                             );
+                         })}
+                     </div>
+                 ) : (
+                     <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                         <p className="text-gray-500">No records for this month.</p>
+                     </div>
+                 )}
              </div>
           </div>
       );
