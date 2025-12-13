@@ -23,7 +23,8 @@ import {
   Receipt,
   Calculator,
   CalendarRange,
-  Calendar
+  Calendar,
+  Download
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
@@ -43,6 +44,36 @@ const App: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'input' | 'bazar' | 'report' | 'month' | 'year'>('input');
   const [accountFilter, setAccountFilter] = useState<'all' | 'salary' | 'savings' | 'cash'>('all');
+  
+  // Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    // Optionally, send analytics event with outcome of user choice
+    console.log(`User response to the install prompt: ${outcome}`);
+    // We've used the prompt, and can't use it again, discard it
+    setDeferredPrompt(null);
+  };
   
   // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -1053,13 +1084,24 @@ const App: React.FC = () => {
             <Wallet className="w-6 h-6 text-indigo-200 dark:text-indigo-400" />
             <h1 className="text-lg font-bold tracking-tight">SmartSpend</h1>
           </div>
-          <button 
-            onClick={toggleTheme}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === 'light' ? <Moon className="w-5 h-5 text-indigo-100" /> : <Sun className="w-5 h-5 text-yellow-300" />}
-          </button>
+          <div className="flex items-center gap-2">
+            {deferredPrompt && (
+              <button 
+                onClick={handleInstallClick}
+                className="bg-white/10 hover:bg-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors mr-1"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Install App
+              </button>
+            )}
+            <button 
+              onClick={toggleTheme}
+              className="p-2 rounded-full hover:bg-white/10 transition-colors"
+              aria-label="Toggle theme"
+            >
+              {theme === 'light' ? <Moon className="w-5 h-5 text-indigo-100" /> : <Sun className="w-5 h-5 text-yellow-300" />}
+            </button>
+          </div>
         </div>
       </header>
 
