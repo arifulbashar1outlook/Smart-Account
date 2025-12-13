@@ -6,8 +6,16 @@ let genAI: GoogleGenAI | null = null;
 const getGenAI = () => {
   if (genAI) return genAI;
 
+  // The API key must be obtained exclusively from the environment variable process.env.API_KEY
+  const apiKey = process.env.API_KEY;
+
+  if (!apiKey || apiKey === "undefined") {
+      console.warn("Gemini API Key missing in environment variables");
+      return null;
+  }
+
   try {
-    genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    genAI = new GoogleGenAI({ apiKey });
     return genAI;
   } catch (error) {
     console.error("Failed to initialize Gemini Client:", error);
@@ -19,7 +27,7 @@ export const getFinancialAdvice = async (transactions: Transaction[]): Promise<s
   const ai = getGenAI();
   
   if (!ai) {
-    return "AI service is not available. Please ensure the API_KEY is configured.";
+    return "AI service is not available. Please configure the Gemini API Key in your environment variables.";
   }
 
   if (transactions.length === 0) {
@@ -54,7 +62,7 @@ export const getFinancialAdvice = async (transactions: Transaction[]): Promise<s
     return response.text || "Could not generate advice at this time.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Sorry, I'm having trouble analyzing your data right now. Please try again later.";
+    return "Sorry, I'm having trouble analyzing your data right now. Please check your configuration.";
   }
 };
 

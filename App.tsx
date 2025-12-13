@@ -26,21 +26,24 @@ import {
   Calendar,
   User as UserIcon,
   LogIn,
-  Download
+  Download,
+  Settings
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, query, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
 import { Transaction, TransactionType, FinancialSummary, AccountType, Category } from './types';
 import { getStoredTransactions, saveStoredTransactions } from './services/storage';
 import { getFinancialAdvice } from './services/geminiService';
-import { auth, signInWithGoogle, logout } from './services/firebase';
+import { auth, db, signInWithGoogle, logout } from './services/firebase';
 import TransactionForm from './components/TransactionForm';
 import SummaryCard from './components/SummaryCard';
 import FinancialChart from './components/FinancialChart';
 import BottomNavigation from './components/BottomNavigation';
 import SalaryManager from './components/SalaryManager';
+import ConfigModal from './components/ConfigModal';
 
 const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -49,8 +52,10 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'input' | 'bazar' | 'report' | 'month' | 'year'>('input');
   const [accountFilter, setAccountFilter] = useState<'all' | 'salary' | 'savings' | 'cash'>('all');
   
-  // Auth State
+  // Config & Auth
+  const [showConfig, setShowConfig] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -90,13 +95,6 @@ const App: React.FC = () => {
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
-  // Load initial data from local storage
-  useEffect(() => {
-    const loaded = getStoredTransactions();
-    const migrated = loaded.map(t => ({ ...t, accountId: t.accountId || 'salary' }));
-    setTransactions(migrated);
-  }, []);
-
   // Firebase Auth Observer
   useEffect(() => {
     if (!auth) return;
@@ -106,34 +104,91 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Save changes to Local Storage
+  // Data Loading Strategy: LocalStorage vs Firestore
   useEffect(() => {
-    saveStoredTransactions(transactions);
-  }, [transactions]);
+    let unsubscribe = () => {};
+
+    if (user && db) {
+       setIsSyncing(true);
+       // Load from Firestore if user is logged in
+       const q = query(collection(db, 'users', user.uid, 'transactions'));
+       unsubscribe = onSnapshot(q, (snapshot) => {
+          const cloudTxs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Transaction[];
+          // Sort by date desc
+          cloudTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setTransactions(cloudTxs);
+          setIsSyncing(false);
+       }, (error) => {
+          console.error("Firestore sync error:", error);
+          setIsSyncing(false);
+       });
+    } else {
+       // Load from Local Storage if not logged in
+       const loaded = getStoredTransactions();
+       const migrated = loaded.map(t => ({ ...t, accountId: t.accountId || 'salary' }));
+       setTransactions(migrated);
+    }
+    
+    return () => unsubscribe();
+  }, [user]);
+
+  // Sync back to Local Storage (Only if guest)
+  useEffect(() => {
+    if (!user) {
+      saveStoredTransactions(transactions);
+    }
+  }, [transactions, user]);
 
   const handleLogin = async () => {
     try {
       await signInWithGoogle();
     } catch (error) {
-      alert("Failed to sign in. Please check your network or configuration.");
+      alert("Failed to sign in. Please check your configuration in settings.");
     }
   };
 
   const handleLogout = async () => {
     await logout();
     setUser(null);
+    // On logout, revert to local storage data
+    const loaded = getStoredTransactions();
+    setTransactions(loaded);
   };
 
-  const handleAddTransaction = (newTx: Omit<Transaction, 'id'>) => {
-    const transaction: Transaction = {
-      ...newTx,
-      id: uuidv4()
-    };
-    setTransactions(prev => [transaction, ...prev]);
+  const handleAddTransaction = async (newTx: Omit<Transaction, 'id'>) => {
+    if (user && db) {
+      // Add to Cloud
+      try {
+        await addDoc(collection(db, 'users', user.uid, 'transactions'), {
+          ...newTx,
+          date: newTx.date || new Date().toISOString()
+        });
+      } catch (e) {
+        console.error("Error saving to cloud", e);
+        alert("Failed to save transaction to cloud.");
+      }
+    } else {
+      // Add Locally
+      const transaction: Transaction = {
+        ...newTx,
+        id: uuidv4()
+      };
+      setTransactions(prev => [transaction, ...prev]);
+    }
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
+  const handleDeleteTransaction = async (id: string) => {
+    if (user && db) {
+      // Delete from Cloud
+      try {
+        await deleteDoc(doc(db, 'users', user.uid, 'transactions', id));
+      } catch (e) {
+        console.error("Error deleting from cloud", e);
+      }
+    } else {
+      // Delete Locally
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    }
   };
 
   const handleGetAdvice = async () => {
@@ -504,20 +559,6 @@ const App: React.FC = () => {
         };
     }, [transactions]);
 
-    const allBazar = transactions.filter(t => t.category === Category.BAZAR);
-    const groupedByMonth = useMemo(() => {
-      const groups: Record<string, Transaction[]> = {};
-      allBazar.forEach(t => {
-        if (!t.date) return;
-        const monthKey = t.date.slice(0, 7);
-        if (!groups[monthKey]) groups[monthKey] = [];
-        groups[monthKey].push(t);
-      });
-      return groups;
-    }, [allBazar]);
-    const sortedMonths = Object.keys(groupedByMonth).sort((a, b) => b.localeCompare(a));
-    const totalLifetimeBazar = allBazar.reduce((acc, t) => acc + t.amount, 0);
-
     const groupedAll = useMemo(() => {
         const groups: Record<string, Transaction[]> = {};
         transactions.forEach(t => {
@@ -712,9 +753,12 @@ const App: React.FC = () => {
                                                 }`}>
                                                     {t.type === 'income' ? '+' : t.type === 'expense' ? '-' : ''} Tk {t.amount.toFixed(2)}
                                                 </span>
-                                                <span className="text-[10px] text-gray-400">
-                                                    {t.date.includes('T') ? new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-                                                </span>
+                                                <button 
+                                                    onClick={() => handleDeleteTransaction(t.id)}
+                                                    className="text-xs text-red-500 hover:underline mt-1 opacity-50 hover:opacity-100"
+                                                >
+                                                    Delete
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
@@ -986,6 +1030,8 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+      <ConfigModal isOpen={showConfig} onClose={() => setShowConfig(false)} />
+      
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -993,12 +1039,27 @@ const App: React.FC = () => {
             <div className="bg-indigo-600 p-2 rounded-lg">
               <Wallet className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 hidden sm:block">
+              SmartSpend
+            </h1>
+            <h1 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 sm:hidden">
               SmartSpend
             </h1>
           </div>
 
           <div className="flex items-center gap-3">
+             {isSyncing && (
+                <span className="text-xs text-indigo-500 animate-pulse hidden sm:inline">Syncing...</span>
+             )}
+             
+             <button
+              onClick={() => setShowConfig(true)}
+              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
+              title="Settings & Config"
+             >
+                <Settings className="w-5 h-5" />
+             </button>
+
              <button
               onClick={toggleTheme}
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
