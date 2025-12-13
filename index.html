@@ -11,6 +11,11 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon.svg" />
 
+    <!-- Polyfill process for Vite compatibility with legacy env access -->
+    <script>
+      window.process = { env: {} };
+    </script>
+
     <!-- Keeping Tailwind CDN for simplicity during deployment -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -49,7 +54,7 @@
         });
       }
     </script>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
@@ -60,9 +65,9 @@
     "recharts": "https://esm.sh/recharts@^3.5.1",
     "uuid": "https://esm.sh/uuid@^13.0.0",
     "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
+    "firebase/": "https://esm.sh/firebase@^12.6.0/",
     "vite": "https://esm.sh/vite@^7.2.7",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "firebase/": "https://esm.sh/firebase@^12.6.0/"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
