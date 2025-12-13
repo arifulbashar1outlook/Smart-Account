@@ -30,8 +30,7 @@ import {
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import firebase from 'firebase/app';
 
 import { Transaction, TransactionType, FinancialSummary, AccountType, Category } from './types';
 import { getStoredTransactions, saveStoredTransactions } from './services/storage';
@@ -51,7 +50,7 @@ const App: React.FC = () => {
   const [accountFilter, setAccountFilter] = useState<'all' | 'salary' | 'savings' | 'cash'>('all');
   
   // Auth
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<firebase.User | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   
   // Install Prompt State
@@ -95,7 +94,7 @@ const App: React.FC = () => {
   // Firebase Auth Observer
   useEffect(() => {
     if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
       setUser(currentUser);
     });
     return () => unsubscribe();
@@ -108,8 +107,11 @@ const App: React.FC = () => {
     if (user && db) {
        setIsSyncing(true);
        // Load from Firestore if user is logged in
-       const q = query(collection(db, 'users', user.uid, 'transactions'));
-       unsubscribe = onSnapshot(q, (snapshot) => {
+       const ref = db.collection('users').doc(user.uid).collection('transactions');
+       // Note: To reproduce sorting "orderBy('date', 'desc')" in v8:
+       // ref.orderBy('date', 'desc').onSnapshot(...)
+       // However, we'll keep sorting in JS to match previous logic logic structure
+       unsubscribe = ref.onSnapshot((snapshot) => {
           const cloudTxs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Transaction[];
           // Sort by date desc
           cloudTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -156,7 +158,7 @@ const App: React.FC = () => {
     if (user && db) {
       // Add to Cloud
       try {
-        await addDoc(collection(db, 'users', user.uid, 'transactions'), {
+        await db.collection('users').doc(user.uid).collection('transactions').add({
           ...newTx,
           date: newTx.date || new Date().toISOString()
         });
@@ -178,7 +180,7 @@ const App: React.FC = () => {
     if (user && db) {
       // Delete from Cloud
       try {
-        await deleteDoc(doc(db, 'users', user.uid, 'transactions', id));
+        await db.collection('users').doc(user.uid).collection('transactions').doc(id).delete();
       } catch (e) {
         console.error("Error deleting from cloud", e);
       }
