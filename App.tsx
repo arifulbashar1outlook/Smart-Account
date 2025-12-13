@@ -26,8 +26,7 @@ import {
   Calendar,
   User as UserIcon,
   LogIn,
-  Download,
-  Settings
+  Download
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
@@ -43,7 +42,6 @@ import SummaryCard from './components/SummaryCard';
 import FinancialChart from './components/FinancialChart';
 import BottomNavigation from './components/BottomNavigation';
 import SalaryManager from './components/SalaryManager';
-import ConfigModal from './components/ConfigModal';
 
 const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -52,8 +50,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'input' | 'bazar' | 'report' | 'month' | 'year'>('input');
   const [accountFilter, setAccountFilter] = useState<'all' | 'salary' | 'savings' | 'cash'>('all');
   
-  // Config & Auth
-  const [showConfig, setShowConfig] = useState(false);
+  // Auth
   const [user, setUser] = useState<User | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   
@@ -143,7 +140,7 @@ const App: React.FC = () => {
     try {
       await signInWithGoogle();
     } catch (error) {
-      alert("Failed to sign in. Please check your configuration in settings.");
+      alert("Failed to sign in. Please check your network connection.");
     }
   };
 
@@ -1030,7 +1027,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      <ConfigModal isOpen={showConfig} onClose={() => setShowConfig(false)} />
       
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
@@ -1051,14 +1047,6 @@ const App: React.FC = () => {
              {isSyncing && (
                 <span className="text-xs text-indigo-500 animate-pulse hidden sm:inline">Syncing...</span>
              )}
-             
-             <button
-              onClick={() => setShowConfig(true)}
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
-              title="Settings & Config"
-             >
-                <Settings className="w-5 h-5" />
-             </button>
 
              <button
               onClick={toggleTheme}
