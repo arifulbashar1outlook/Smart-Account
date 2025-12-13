@@ -44,7 +44,8 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+          // Added version query param to force browser to check for new SW file
+          navigator.serviceWorker.register('/sw.js?v=2')
             .then(registration => {
               console.log('SW registered: ', registration);
             })
