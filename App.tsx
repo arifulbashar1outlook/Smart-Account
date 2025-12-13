@@ -26,21 +26,24 @@ import {
   Calendar,
   User as UserIcon,
   LogIn,
-  Download
+  Download,
+  Settings,
+  Database
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
-import firebase from 'firebase/app';
+import firebase from 'firebase/compat/app';
 
 import { Transaction, TransactionType, FinancialSummary, AccountType, Category } from './types';
 import { getStoredTransactions, saveStoredTransactions } from './services/storage';
 import { getFinancialAdvice } from './services/geminiService';
-import { auth, db, signInWithGoogle, logout } from './services/firebase';
+import { auth, db, signInWithGoogle, logout, isInitialized } from './services/firebase';
 import TransactionForm from './components/TransactionForm';
 import SummaryCard from './components/SummaryCard';
 import FinancialChart from './components/FinancialChart';
 import BottomNavigation from './components/BottomNavigation';
 import SalaryManager from './components/SalaryManager';
+import ConfigModal from './components/ConfigModal';
 
 const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -49,12 +52,22 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'input' | 'bazar' | 'report' | 'month' | 'year'>('input');
   const [accountFilter, setAccountFilter] = useState<'all' | 'salary' | 'savings' | 'cash'>('all');
   
-  // Auth
+  // Auth & Config
   const [user, setUser] = useState<firebase.User | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
   
   // Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // If firebase is not initialized, show config modal on first load
+    if (!isInitialized) {
+        // Small delay to ensure UI renders first
+        const timer = setTimeout(() => setShowConfig(true), 500);
+        return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -108,9 +121,6 @@ const App: React.FC = () => {
        setIsSyncing(true);
        // Load from Firestore if user is logged in
        const ref = db.collection('users').doc(user.uid).collection('transactions');
-       // Note: To reproduce sorting "orderBy('date', 'desc')" in v8:
-       // ref.orderBy('date', 'desc').onSnapshot(...)
-       // However, we'll keep sorting in JS to match previous logic logic structure
        unsubscribe = ref.onSnapshot((snapshot) => {
           const cloudTxs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Transaction[];
           // Sort by date desc
@@ -140,9 +150,13 @@ const App: React.FC = () => {
 
   const handleLogin = async () => {
     try {
+      if (!isInitialized) {
+        setShowConfig(true);
+        return;
+      }
       await signInWithGoogle();
     } catch (error) {
-      alert("Failed to sign in. Please check your network connection.");
+       // Error handled in service
     }
   };
 
@@ -308,6 +322,7 @@ const App: React.FC = () => {
     };
   };
 
+  // ... (getGroupKey remains same)
   const getGroupKey = (dateStr: string) => {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return new Date().toISOString();
@@ -324,6 +339,14 @@ const App: React.FC = () => {
        <div className="mb-8 text-center">
          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Add Transaction</h2>
          <p className="text-gray-500 dark:text-gray-400">Manage your money flow</p>
+         {!isInitialized && (
+            <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg inline-block">
+                <p className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                    <Database className="w-4 h-4" />
+                    Offline Mode. Connect database in settings to sync.
+                </p>
+            </div>
+         )}
        </div>
        
        <SalaryManager onAddTransaction={handleAddTransaction} />
@@ -451,6 +474,7 @@ const App: React.FC = () => {
          </form>
 
          <div className="space-y-6">
+           {/* ... existing bazar list code ... */}
            <h3 className="font-medium text-gray-500 dark:text-gray-400 text-sm uppercase">Recent Shopping History</h3>
            {bazarTransactions.length === 0 ? (
              <div className="text-center py-10 text-gray-400 dark:text-gray-600">
@@ -516,6 +540,9 @@ const App: React.FC = () => {
   };
 
   const ReportPage = () => {
+     // ... ReportPage code remains same
+     // Just copying existing logic structure to save space in this response, 
+     // in real implementation full code is preserved
     const [reportView, setReportView] = useState<'summary' | 'bazar' | 'full'>('summary');
 
     const { dailyStats, monthlyStats, yearlyStats } = useMemo(() => {
@@ -527,7 +554,6 @@ const App: React.FC = () => {
             if (!t.date) return;
             const date = new Date(t.date);
             if (isNaN(date.getTime())) return;
-
             if (t.type === 'transfer') return;
 
             const yKey = date.getFullYear().toString();
@@ -606,6 +632,7 @@ const App: React.FC = () => {
 
          {reportView === 'summary' && (
              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Yearly */}
                 <div>
                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
                        <CalendarRange className="w-5 h-5 text-indigo-500" /> 
@@ -635,6 +662,7 @@ const App: React.FC = () => {
                    </div>
                 </div>
 
+                {/* Monthly */}
                 <div>
                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
                        <Calendar className="w-5 h-5 text-blue-500" /> 
@@ -669,6 +697,7 @@ const App: React.FC = () => {
                    </div>
                 </div>
 
+                {/* Daily */}
                 <div>
                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
                        <Clock className="w-5 h-5 text-amber-500" /> 
@@ -774,6 +803,7 @@ const App: React.FC = () => {
   };
 
   const DashboardView = ({ period }: { period: 'month' | 'year' }) => {
+    // ... DashboardView logic remains the same
     const filtered = useMemo(() => getFilteredTransactions(period, accountFilter), [period, transactions, accountFilter]);
     const summary = useMemo(() => getSummary(filtered), [filtered, accountFilter, accountBalances]);
 
@@ -1029,6 +1059,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+      <ConfigModal isOpen={showConfig} onClose={() => setShowConfig(false)} />
       
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
@@ -1049,6 +1080,14 @@ const App: React.FC = () => {
              {isSyncing && (
                 <span className="text-xs text-indigo-500 animate-pulse hidden sm:inline">Syncing...</span>
              )}
+
+             <button
+              onClick={() => setShowConfig(true)}
+              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
 
              <button
               onClick={toggleTheme}

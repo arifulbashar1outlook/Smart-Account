@@ -1,27 +1,72 @@
-import firebase from "firebase/app";
-import "firebase/auth";
-import "firebase/firestore";
+import firebase from "firebase/compat/app";
+import "firebase/compat/auth";
+import "firebase/compat/firestore";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyARtUaBoJ-rtOuvxES6Hde5bCHcWoIAkAk",
-  authDomain: "smartspent-43f3d.firebaseapp.com",
-  projectId: "smartspent-43f3d",
-  storageBucket: "smartspent-43f3d.firebasestorage.app",
-  messagingSenderId: "166029346",
-  appId: "1:166029346:web:4c1c6c0e3f0aacda7b827b",
-  measurementId: "G-G9B1TKQ66J"
+const CONFIG_KEY = 'smartspend_firebase_config';
+
+let auth: firebase.auth.Auth | undefined;
+let db: firebase.firestore.Firestore | undefined;
+let isInitialized = false;
+
+// Helper to get config safely
+export const getStoredFirebaseConfig = () => {
+  try {
+    const stored = localStorage.getItem(CONFIG_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch (e) {
+    console.error("Failed to parse stored config", e);
+    return null;
+  }
 };
 
-// Initialize Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+export const saveFirebaseConfig = (config: any) => {
+  if (!config) return;
+  try {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+    // Reload to apply changes
+    window.location.reload();
+  } catch (e) {
+    console.error("Failed to save config", e);
+    alert("Failed to save configuration to local storage.");
+  }
+};
+
+export const clearFirebaseConfig = () => {
+    localStorage.removeItem(CONFIG_KEY);
+    window.location.reload();
 }
 
-export const auth = firebase.auth();
-export const db = firebase.firestore();
-export const isInitialized = true;
+// Initialize Firebase safely
+try {
+    const config = getStoredFirebaseConfig();
+    
+    // Only initialize if we have a config and no apps are running
+    if (config && !firebase.apps.length) {
+        firebase.initializeApp(config);
+    }
+    
+    // If initialized (either just now or previously), set exports
+    if (firebase.apps.length) {
+        auth = firebase.auth();
+        db = firebase.firestore();
+        isInitialized = true;
+        console.log("Firebase initialized successfully");
+    }
+} catch (error) {
+    console.error("Firebase initialization failed:", error);
+    // If init fails, we might have bad config. 
+    // We don't auto-clear here to let the user see the error or re-enter, 
+    // but the app won't crash because we caught the error.
+}
+
+export { auth, db, isInitialized };
 
 export const signInWithGoogle = async () => {
+  if (!auth) {
+      alert("Firebase is not connected. Please enter your configuration in Settings.");
+      throw new Error("Firebase not initialized");
+  }
+  
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
     const result = await auth.signInWithPopup(provider);
@@ -29,7 +74,9 @@ export const signInWithGoogle = async () => {
   } catch (error: any) {
     console.error("Error signing in", error);
     if (error.code === 'auth/unauthorized-domain') {
-       alert(`Authentication Error: Unauthorized Domain.\n\nPlease add the current domain to your Firebase Console:\n1. Go to console.firebase.google.com\n2. Open project "${firebaseConfig.projectId}"\n3. Go to Authentication > Settings > Authorized Domains\n4. Add the domain shown in your browser address bar.`);
+        const config = getStoredFirebaseConfig();
+        const projectId = config?.projectId || 'your-project-id';
+        alert(`Authentication Error: Unauthorized Domain.\n\nPlease add the current domain to your Firebase Console:\n1. Go to console.firebase.google.com\n2. Open project "${projectId}"\n3. Go to Authentication > Settings > Authorized Domains\n4. Add the domain shown in your browser address bar.`);
     } else {
        alert(`Sign in failed: ${error.message}`);
     }
@@ -38,6 +85,7 @@ export const signInWithGoogle = async () => {
 };
 
 export const logout = async () => {
+  if (!auth) return;
   try {
     await auth.signOut();
   } catch (error) {
