@@ -91,6 +91,11 @@ export const signInWithGoogle = async () => {
     } else {
       // Use web SDK popup for browsers
       const provider = new firebase.auth.GoogleAuthProvider();
+      const result = await auth.signInWithPopup(provider);
+      return result.user;
+    }
+  } catch (error: any) {
+    console.error("Error signing in", error);
     if (error.code === 'auth/unauthorized-domain') {
         const config = getStoredFirebaseConfig();
         const projectId = config?.projectId || 'your-project-id';
