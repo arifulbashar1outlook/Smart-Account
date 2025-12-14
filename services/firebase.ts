@@ -1,6 +1,7 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
 import "firebase/compat/firestore";
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 // Changed key to v2 to force fresh start if v1 had corrupted data
 const CONFIG_KEY = 'smartspend_firebase_config_v2';
@@ -60,15 +61,6 @@ try {
         db = firebase.firestore();
         isInitialized = true;
         console.log("Firebase initialized successfully");
-
-        // Handle redirect result for mobile authentication
-        auth.getRedirectResult().then((result) => {
-            if (result.user) {
-                console.log("User signed in via redirect:", result.user.displayName);
-            }
-        }).catch((error) => {
-            console.error("Redirect result error:", error);
-        });
     } else {
         console.log("Firebase waiting for configuration...");
     }
@@ -87,23 +79,18 @@ export const signInWithGoogle = async () => {
       throw new Error("Firebase not initialized");
   }
 
-  const provider = new firebase.auth.GoogleAuthProvider();
   try {
     // Check if we're running in Capacitor (mobile app)
     const isCapacitor = !!(window as any).Capacitor;
 
     if (isCapacitor) {
-      // Use redirect for mobile apps
-      await auth.signInWithRedirect(provider);
-      // Note: The redirect will reload the app, and we need to handle the result
-      return null; // Result will be handled on redirect
-    } else {
-      // Use popup for web browsers
-      const result = await auth.signInWithPopup(provider);
+      // Use Capacitor Firebase Auth plugin for mobile
+      const result = await FirebaseAuthentication.signInWithGoogle();
+      // The plugin handles the authentication flow and updates Firebase Auth automatically
       return result.user;
-    }
-  } catch (error: any) {
-    console.error("Error signing in", error);
+    } else {
+      // Use web SDK popup for browsers
+      const provider = new firebase.auth.GoogleAuthProvider();
     if (error.code === 'auth/unauthorized-domain') {
         const config = getStoredFirebaseConfig();
         const projectId = config?.projectId || 'your-project-id';
