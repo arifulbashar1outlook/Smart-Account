@@ -404,6 +404,41 @@ const FullMonthlyReport: React.FC<FullMonthlyReportProps> = ({ transactions }) =
     const currentYear = viewDate.getFullYear();
     const monthName = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+    // Calculate historical balances at the end of the selected month
+    const historicalBalances = useMemo(() => {
+        // Set cutoff to the last second of the viewed month
+        const endOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
+        
+        let salary = 0;
+        let savings = 0;
+        let cash = 0;
+
+        transactions.forEach(t => {
+            const tDate = new Date(t.date);
+            if (tDate > endOfMonth) return; // Skip future transactions
+
+            if (t.type === 'income') {
+                if (t.accountId === 'salary') salary += t.amount;
+                if (t.accountId === 'savings') savings += t.amount;
+                if (t.accountId === 'cash') cash += t.amount;
+            } else if (t.type === 'expense') {
+                if (t.accountId === 'salary') salary -= t.amount;
+                if (t.accountId === 'savings') savings -= t.amount;
+                if (t.accountId === 'cash') cash -= t.amount;
+            } else if (t.type === 'transfer') {
+                if (t.accountId === 'salary') salary -= t.amount;
+                if (t.accountId === 'savings') savings -= t.amount;
+                if (t.accountId === 'cash') cash -= t.amount;
+
+                if (t.targetAccountId === 'salary') salary += t.amount;
+                if (t.targetAccountId === 'savings') savings += t.amount;
+                if (t.targetAccountId === 'cash') cash += t.amount;
+            }
+        });
+
+        return { salary, savings, cash };
+    }, [transactions, currentMonth, currentYear]);
+
     // Filter transactions for this month
     const monthlyData = useMemo(() => {
         const thisMonthTxs = transactions.filter(t => {
@@ -415,6 +450,9 @@ const FullMonthlyReport: React.FC<FullMonthlyReportProps> = ({ transactions }) =
         // Calculate Totals
         const totalIncome = thisMonthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
         const totalExpense = thisMonthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        
+        const netFlow = totalIncome - totalExpense;
+
         // Withdrawals are transfers from salary/savings TO cash
         const totalWithdrawals = thisMonthTxs
             .filter(t => t.type === 'transfer' && t.targetAccountId === 'cash' && (t.accountId === 'salary' || t.accountId === 'savings'))
@@ -443,6 +481,7 @@ const FullMonthlyReport: React.FC<FullMonthlyReportProps> = ({ transactions }) =
         return {
             totalIncome,
             totalExpense,
+            netFlow,
             totalWithdrawals,
             sortedCategories,
             transactionsByCategory,
@@ -473,15 +512,48 @@ const FullMonthlyReport: React.FC<FullMonthlyReportProps> = ({ transactions }) =
                 <p className="text-gray-500 dark:text-gray-400">Comprehensive breakdown</p>
             </div>
 
-            {/* Overview Cards */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            {/* Account Balances (Historical End of Month) */}
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 pl-1 text-sm uppercase tracking-wide">End of Month Status</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Building2 className="w-4 h-4 text-blue-500" />
+                        <p className="text-xs font-medium uppercase text-blue-600 dark:text-blue-400">Salary Acc</p>
+                    </div>
+                    <p className="text-lg font-bold text-blue-700 dark:text-blue-300">Tk {historicalBalances.salary.toLocaleString()}</p>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-100 dark:border-purple-800">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Landmark className="w-4 h-4 text-purple-500" />
+                        <p className="text-xs font-medium uppercase text-purple-600 dark:text-purple-400">Savings Acc</p>
+                    </div>
+                    <p className="text-lg font-bold text-purple-700 dark:text-purple-300">Tk {historicalBalances.savings.toLocaleString()}</p>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-800">
+                     <div className="flex items-center gap-2 mb-1">
+                        <Banknote className="w-4 h-4 text-amber-500" />
+                        <p className="text-xs font-medium uppercase text-amber-600 dark:text-amber-400">Cash In Hand</p>
+                    </div>
+                    <p className="text-lg font-bold text-amber-700 dark:text-amber-300">Tk {historicalBalances.cash.toLocaleString()}</p>
+                </div>
+            </div>
+
+            {/* Monthly Flow Cards */}
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 pl-1 text-sm uppercase tracking-wide">Monthly Flow</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
                 <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
                     <p className="text-xs font-medium uppercase text-emerald-600 dark:text-emerald-400 mb-1">Total Income</p>
-                    <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">Tk {monthlyData.totalIncome.toLocaleString()}</p>
+                    <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">Tk {monthlyData.totalIncome.toLocaleString()}</p>
                 </div>
                 <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-100 dark:border-rose-800">
                     <p className="text-xs font-medium uppercase text-rose-600 dark:text-rose-400 mb-1">Total Expense</p>
-                    <p className="text-xl font-bold text-rose-700 dark:text-rose-300">Tk {monthlyData.totalExpense.toLocaleString()}</p>
+                    <p className="text-lg font-bold text-rose-700 dark:text-rose-300">Tk {monthlyData.totalExpense.toLocaleString()}</p>
+                </div>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 col-span-2 sm:col-span-1">
+                    <p className="text-xs font-medium uppercase text-indigo-600 dark:text-indigo-400 mb-1">Net Flow</p>
+                    <p className={`text-lg font-bold ${monthlyData.netFlow >= 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-rose-600 dark:text-rose-400'}`}>
+                        Tk {monthlyData.netFlow.toLocaleString()}
+                    </p>
                 </div>
             </div>
 
