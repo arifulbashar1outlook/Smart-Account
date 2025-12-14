@@ -43,22 +43,9 @@ jobs:
     - name: Add Android platform
       run: npx cap add android
 
-    - name: Create dummy google-services.json (if needed)
+    - name: Create google-services.json from secret
       run: |
-        if [ ! -f android/app/google-services.json ]; then
-          echo "Creating dummy google-services.json for build"
-          cat > android/app/google-services.json << EOF
-        {
-          "project_info": {
-            "project_number": "000000000000",
-            "project_id": "dummy-project",
-            "storage_bucket": "dummy-project.appspot.com"
-          },
-          "client": [],
-          "configuration_version": "1"
-        }
-        EOF
-        fi
+        echo "${{ secrets.GOOGLE_SERVICES_JSON }}" > android/app/google-services.json
 
     - name: Capacitor sync
       run: npx cap sync android
