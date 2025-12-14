@@ -115,20 +115,21 @@ export const signInWithGoogle = async () => {
     const isCapacitor = !!(window as any).Capacitor;
 
     if (isCapacitor) {
-      // For Capacitor mobile apps, use redirect method
-      console.log("Using redirect authentication for Capacitor...");
-      const provider = new firebase.auth.GoogleAuthProvider();
-      provider.addScope('profile');
-      provider.addScope('email');
-
+      // Use Capacitor Firebase Auth plugin for native mobile authentication
+      console.log("Using Capacitor Firebase Auth plugin...");
       try {
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        console.log("Capacitor auth successful:", result);
+        return result.user;
+      } catch (pluginError: any) {
+        console.error("Capacitor Firebase Auth error:", pluginError);
+        // If plugin fails, fall back to web redirect
+        console.log("Falling back to web redirect authentication...");
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.addScope('profile');
+        provider.addScope('email');
         await auth.signInWithRedirect(provider);
-        // The redirect will navigate away and come back
-        // The result will be handled by getRedirectResult
         return null;
-      } catch (redirectError) {
-        console.error("Redirect auth error:", redirectError);
-        throw redirectError;
       }
     } else {
       // Use web SDK popup for browsers
