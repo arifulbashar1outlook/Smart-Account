@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { History, Receipt, TrendingUp, TrendingDown, ArrowRightLeft, Trash2, X, Check, CalendarDays, FilterX } from 'lucide-react';
+import { History, Receipt, TrendingUp, TrendingDown, ArrowRightLeft, Trash2, X, Check, CalendarDays, FilterX, CalendarRange, Calendar } from 'lucide-react';
 import { Transaction, AccountType, Category, TransactionType } from '../types';
 
 interface HistoryViewProps {
@@ -10,7 +10,9 @@ interface HistoryViewProps {
 
 const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransaction, onDeleteTransaction }) => {
     // Filter State
+    const [filterType, setFilterType] = useState<'date' | 'month'>('date');
     const [selectedDate, setSelectedDate] = useState('');
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
 
     // Edit State
     const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -21,11 +23,16 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
     const [editCategory, setEditCategory] = useState<string>('');
     const [editType, setEditType] = useState<TransactionType>('expense');
 
-    // Filter transactions based on date selection
+    // Filter transactions based on selection
     const filteredTransactions = useMemo(() => {
-        if (!selectedDate) return transactions;
-        return transactions.filter(t => t.date.startsWith(selectedDate));
-    }, [transactions, selectedDate]);
+        if (filterType === 'date') {
+            if (!selectedDate) return transactions;
+            return transactions.filter(t => t.date.startsWith(selectedDate));
+        } else {
+            if (!selectedMonth) return transactions;
+            return transactions.filter(t => t.date.startsWith(selectedMonth));
+        }
+    }, [transactions, filterType, selectedDate, selectedMonth]);
 
     const groupedAll = useMemo(() => {
         const groups: Record<string, Transaction[]> = {};
@@ -192,31 +199,66 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
             <p className="text-gray-500 dark:text-gray-400 mt-1">Full log of all activities</p>
          </div>
 
-         {/* Go To Date Filter */}
-         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex items-center gap-3">
-            <div className="flex-1">
-                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 block">Go to Date</label>
-                <div className="relative">
-                    <CalendarDays className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                    <input 
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                </div>
+         {/* Filter Section */}
+         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 space-y-4">
+            {/* Filter Type Toggle */}
+            <div className="flex gap-2 bg-gray-100 dark:bg-gray-700/50 p-1 rounded-lg">
+                <button 
+                    onClick={() => setFilterType('date')}
+                    className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${filterType === 'date' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                    Specific Date
+                </button>
+                <button 
+                    onClick={() => setFilterType('month')}
+                    className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${filterType === 'month' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                    Entire Month
+                </button>
             </div>
-            {selectedDate && (
-                <div className="pt-5">
+
+            <div className="flex items-end gap-3">
+                <div className="flex-1">
+                    <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 block">
+                        {filterType === 'date' ? 'Select Date' : 'Select Month'}
+                    </label>
+                    <div className="relative">
+                        {filterType === 'date' ? (
+                            <CalendarDays className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                        ) : (
+                            <CalendarRange className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                        )}
+                        
+                        {filterType === 'date' ? (
+                            <input 
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        ) : (
+                            <input 
+                                type="month"
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        )}
+                    </div>
+                </div>
+                {((filterType === 'date' && selectedDate) || (filterType === 'month' && selectedMonth)) && (
                     <button 
-                        onClick={() => setSelectedDate('')}
-                        className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-500 dark:text-gray-300 transition-colors"
-                        title="Clear Date"
+                        onClick={() => {
+                            if (filterType === 'date') setSelectedDate('');
+                            else setSelectedMonth('');
+                        }}
+                        className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-500 dark:text-gray-300 transition-colors h-[38px] w-[38px] flex items-center justify-center"
+                        title="Clear Filter"
                     >
                         <FilterX className="w-5 h-5" />
                     </button>
-                </div>
-            )}
+                )}
+            </div>
          </div>
 
          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
@@ -224,7 +266,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
                 <div className="text-center py-12">
                    <Receipt className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                    <p className="text-gray-500">
-                       {selectedDate ? "No transactions found on this date." : "No transactions recorded."}
+                       No transactions found.
                    </p>
                 </div>
              ) : (
@@ -233,10 +275,15 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
                         const dayTransactions = groupedAll[date];
                         return (
                             <div key={date}>
-                                <div className="sticky top-0 z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm py-2 mb-2 border-b border-gray-100 dark:border-gray-800">
+                                <div className="sticky top-0 z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm py-2 mb-2 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                                     <h3 className="font-semibold text-gray-800 dark:text-gray-200">
-                                        {new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        {new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                                     </h3>
+                                    {filterType === 'month' && (
+                                         <span className="text-xs font-medium text-gray-500 bg-gray-200 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                                            {dayTransactions.length} items
+                                         </span>
+                                    )}
                                 </div>
                                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                                     {dayTransactions.map(t => (
