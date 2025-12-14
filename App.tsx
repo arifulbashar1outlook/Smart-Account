@@ -36,7 +36,10 @@ import {
   BarChartBig,
   PieChart as PieChartIcon,
   HandCoins,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
@@ -91,6 +94,19 @@ const ReportView: React.FC<ReportViewProps> = ({
   totalLabel,
   emptyMessage
 }) => {
+    // Navigation State for viewing different months
+    const [viewDate, setViewDate] = useState(new Date());
+
+    const changeMonth = (offset: number) => {
+        const newDate = new Date(viewDate);
+        newDate.setMonth(newDate.getMonth() + offset);
+        setViewDate(newDate);
+    };
+
+    const currentMonth = viewDate.getMonth();
+    const currentYear = viewDate.getFullYear();
+    const monthName = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
     const [editingTx, setEditingTx] = useState<Transaction | null>(null);
     const [editDesc, setEditDesc] = useState('');
     const [editAmount, setEditAmount] = useState('');
@@ -98,14 +114,12 @@ const ReportView: React.FC<ReportViewProps> = ({
     const [editAccount, setEditAccount] = useState<AccountType>('cash');
     const [editCategory, setEditCategory] = useState<string>('');
     const [editType, setEditType] = useState<TransactionType>('expense');
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
     
-    const filteredTxs = transactions.filter(filterFn);
+    // First apply the type/category filter (passed as prop)
+    const typeFilteredTxs = transactions.filter(filterFn);
     
-    const thisMonthTxs = filteredTxs.filter(t => {
+    // Then filter by the selected month
+    const thisMonthTxs = typeFilteredTxs.filter(t => {
         if (!t.date) return false;
         const d = new Date(t.date);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -273,12 +287,25 @@ const ReportView: React.FC<ReportViewProps> = ({
             </div>
            )}
 
+           {/* Month Navigation */}
+           <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm mb-6">
+              <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
+                  <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="text-center">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{monthName}</p>
+              </div>
+              <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
+                  <ChevronRight className="w-5 h-5" />
+              </button>
+           </div>
+
            <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Icon className={`w-6 h-6 ${colorClass}`} />
                   {title}
               </h2>
-              <p className="text-gray-500 dark:text-gray-400">Monthly Analysis: {now.toLocaleDateString('en-US', {month: 'long', year: 'numeric'})}</p>
+              <p className="text-gray-500 dark:text-gray-400">Analysis for {monthName}</p>
            </div>
 
            <div className={`${bgClass} p-6 rounded-xl border border-gray-100 dark:border-gray-700 mb-8 flex flex-col items-center justify-center text-center`}>
@@ -358,13 +385,143 @@ const ReportView: React.FC<ReportViewProps> = ({
     );
 };
 
+// --- New Component: Full Categorical Monthly Report ---
+interface FullMonthlyReportProps {
+    transactions: Transaction[];
+}
+
+const FullMonthlyReport: React.FC<FullMonthlyReportProps> = ({ transactions }) => {
+    // Navigation State for viewing different months
+    const [viewDate, setViewDate] = useState(new Date());
+
+    const changeMonth = (offset: number) => {
+        const newDate = new Date(viewDate);
+        newDate.setMonth(newDate.getMonth() + offset);
+        setViewDate(newDate);
+    };
+
+    const currentMonth = viewDate.getMonth();
+    const currentYear = viewDate.getFullYear();
+    const monthName = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    // Filter transactions for this month
+    const monthlyData = useMemo(() => {
+        const thisMonthTxs = transactions.filter(t => {
+            if (!t.date) return false;
+            const d = new Date(t.date);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        });
+
+        // Calculate Totals
+        const totalIncome = thisMonthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const totalExpense = thisMonthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        // Withdrawals are transfers from salary/savings TO cash
+        const totalWithdrawals = thisMonthTxs
+            .filter(t => t.type === 'transfer' && t.targetAccountId === 'cash' && (t.accountId === 'salary' || t.accountId === 'savings'))
+            .reduce((sum, t) => sum + t.amount, 0);
+
+        // Group Expenses by Category
+        const expensesByCategory: Record<string, number> = {};
+        thisMonthTxs.filter(t => t.type === 'expense').forEach(t => {
+            const cat = t.category || 'Other';
+            expensesByCategory[cat] = (expensesByCategory[cat] || 0) + t.amount;
+        });
+
+        const sortedCategories = Object.entries(expensesByCategory).sort((a,b) => b[1] - a[1]);
+
+        return {
+            totalIncome,
+            totalExpense,
+            totalWithdrawals,
+            sortedCategories,
+            count: thisMonthTxs.length
+        };
+    }, [transactions, currentMonth, currentYear]);
+
+    return (
+        <div className="max-w-2xl mx-auto px-4 py-8 pb-24 relative">
+            <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm mb-6">
+                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
+                    <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="text-center">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{monthName}</p>
+                </div>
+                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
+                    <ChevronRight className="w-5 h-5" />
+                </button>
+            </div>
+
+            <div className="mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <ClipboardList className="w-6 h-6 text-indigo-500" />
+                    Full Monthly Report
+                </h2>
+                <p className="text-gray-500 dark:text-gray-400">Comprehensive breakdown</p>
+            </div>
+
+            {/* Overview Cards */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                    <p className="text-xs font-medium uppercase text-emerald-600 dark:text-emerald-400 mb-1">Total Income</p>
+                    <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">Tk {monthlyData.totalIncome.toLocaleString()}</p>
+                </div>
+                <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-100 dark:border-rose-800">
+                    <p className="text-xs font-medium uppercase text-rose-600 dark:text-rose-400 mb-1">Total Expense</p>
+                    <p className="text-xl font-bold text-rose-700 dark:text-rose-300">Tk {monthlyData.totalExpense.toLocaleString()}</p>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 flex justify-between items-center">
+                     <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                         <Banknote className="w-4 h-4 text-amber-500" /> Cash Withdrawals
+                     </h3>
+                     <span className="font-bold text-amber-600 dark:text-amber-400">Tk {monthlyData.totalWithdrawals.toLocaleString()}</span>
+                 </div>
+                 <div className="p-4 text-xs text-gray-500 dark:text-gray-400 bg-amber-50/30 dark:bg-amber-900/10">
+                    Money transferred from Salary/Savings to Cash (Wallet). This is not an expense, but money taken out for use.
+                 </div>
+            </div>
+
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 pl-1">Categorical Breakdown</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                {monthlyData.sortedCategories.length > 0 ? (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {monthlyData.sortedCategories.map(([cat, amount]) => (
+                            <div key={cat} className="flex justify-between items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <span className="font-medium text-gray-700 dark:text-gray-200">{cat}</span>
+                                <span className="font-bold text-gray-900 dark:text-white">Tk {amount.toLocaleString()}</span>
+                            </div>
+                        ))}
+                         <div className="p-4 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center border-t border-gray-100 dark:border-gray-700">
+                            <span className="font-bold text-gray-900 dark:text-white uppercase text-sm">Total</span>
+                            <span className="font-bold text-rose-600 dark:text-rose-400">Tk {monthlyData.totalExpense.toLocaleString()}</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-8 text-center text-gray-400 dark:text-gray-500">
+                        No expenses recorded for this month.
+                    </div>
+                )}
+            </div>
+            
+            <div className="mt-8 text-center">
+                <p className="text-xs text-gray-400 dark:text-gray-600">
+                    Showing {monthlyData.count} records from {monthName}
+                </p>
+            </div>
+        </div>
+    );
+}
+
 const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [aiAdvice, setAiAdvice] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   
   // Navigation State
-  const [activeTab, setActiveTab] = useState<'input' | 'bazar' | 'bazar-report' | 'expense-report' | 'lending' | 'history' | 'dashboard'>('input');
+  const [activeTab, setActiveTab] = useState<'input' | 'bazar' | 'bazar-report' | 'expense-report' | 'lending' | 'history' | 'dashboard' | 'full-report'>('input');
   const [dashboardPeriod, setDashboardPeriod] = useState<'month' | 'year'>('month');
   const [accountFilter, setAccountFilter] = useState<'all' | 'salary' | 'savings' | 'cash'>('all');
   
@@ -941,6 +1098,16 @@ const App: React.FC = () => {
                     
                     <div className="p-2 space-y-1">
                         <button 
+                             onClick={() => handleMenuAction(() => setActiveTab('full-report'))}
+                             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        >
+                            <ClipboardList className="w-4 h-4" />
+                            Full Monthly Report
+                        </button>
+
+                        <div className="h-px bg-gray-100 dark:bg-gray-700 my-1"></div>
+
+                        <button 
                             onClick={() => handleMenuAction(() => toggleTheme())}
                             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
                         >
@@ -1017,7 +1184,7 @@ const App: React.FC = () => {
             onDeleteTransaction={handleDeleteTransaction}
             colorClass="text-rose-600 dark:text-rose-400"
             bgClass="bg-rose-50 dark:bg-rose-900/20"
-            totalLabel="Total Spent This Month"
+            totalLabel="Total Spent"
             emptyMessage="No records for this month."
           />
         )}
@@ -1031,10 +1198,11 @@ const App: React.FC = () => {
             onDeleteTransaction={handleDeleteTransaction}
             colorClass="text-purple-600 dark:text-purple-400"
             bgClass="bg-purple-50 dark:bg-purple-900/20"
-            totalLabel="Total Expenses This Month"
+            totalLabel="Total Expenses"
             emptyMessage="No expense records for this month."
           />
         )}
+        {activeTab === 'full-report' && <FullMonthlyReport transactions={transactions} />}
         {activeTab === 'lending' && <LendingView transactions={transactions} onAddTransaction={handleAddTransaction} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} />}
         {activeTab === 'history' && <HistoryView transactions={transactions} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} />}
         {activeTab === 'dashboard' && <DashboardView period={dashboardPeriod} />}

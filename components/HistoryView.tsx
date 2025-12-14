@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { History, Receipt, TrendingUp, TrendingDown, ArrowRightLeft, Trash2, X, Check } from 'lucide-react';
+import { History, Receipt, TrendingUp, TrendingDown, ArrowRightLeft, Trash2, X, Check, CalendarDays, FilterX } from 'lucide-react';
 import { Transaction, AccountType, Category, TransactionType } from '../types';
 
 interface HistoryViewProps {
@@ -9,6 +9,9 @@ interface HistoryViewProps {
 }
 
 const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransaction, onDeleteTransaction }) => {
+    // Filter State
+    const [selectedDate, setSelectedDate] = useState('');
+
     // Edit State
     const [editingTx, setEditingTx] = useState<Transaction | null>(null);
     const [editDesc, setEditDesc] = useState('');
@@ -18,16 +21,23 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
     const [editCategory, setEditCategory] = useState<string>('');
     const [editType, setEditType] = useState<TransactionType>('expense');
 
+    // Filter transactions based on date selection
+    const filteredTransactions = useMemo(() => {
+        if (!selectedDate) return transactions;
+        return transactions.filter(t => t.date.startsWith(selectedDate));
+    }, [transactions, selectedDate]);
+
     const groupedAll = useMemo(() => {
         const groups: Record<string, Transaction[]> = {};
-        transactions.forEach(t => {
+        filteredTransactions.forEach(t => {
             if (!t.date) return;
             const dateKey = t.date.split('T')[0];
             if (!groups[dateKey]) groups[dateKey] = [];
             groups[dateKey].push(t);
         });
         return groups;
-    }, [transactions]);
+    }, [filteredTransactions]);
+    
     const sortedAllDates = Object.keys(groupedAll).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
 
     const startEditing = (t: Transaction) => {
@@ -182,11 +192,40 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
             <p className="text-gray-500 dark:text-gray-400 mt-1">Full log of all activities</p>
          </div>
 
+         {/* Go To Date Filter */}
+         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex items-center gap-3">
+            <div className="flex-1">
+                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 block">Go to Date</label>
+                <div className="relative">
+                    <CalendarDays className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <input 
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                </div>
+            </div>
+            {selectedDate && (
+                <div className="pt-5">
+                    <button 
+                        onClick={() => setSelectedDate('')}
+                        className="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-500 dark:text-gray-300 transition-colors"
+                        title="Clear Date"
+                    >
+                        <FilterX className="w-5 h-5" />
+                    </button>
+                </div>
+            )}
+         </div>
+
          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-             {transactions.length === 0 ? (
+             {filteredTransactions.length === 0 ? (
                 <div className="text-center py-12">
                    <Receipt className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                   <p className="text-gray-500">No transactions recorded.</p>
+                   <p className="text-gray-500">
+                       {selectedDate ? "No transactions found on this date." : "No transactions recorded."}
+                   </p>
                 </div>
              ) : (
                 <div className="space-y-6">

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ShoppingBag, Plus, CalendarDays, Clock, Trash2, X, Check } from 'lucide-react';
+import { ShoppingBag, Plus, CalendarDays, Clock, Trash2, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Transaction, Category, AccountType } from '../types';
 
 interface BazarViewProps {
@@ -10,11 +10,22 @@ interface BazarViewProps {
 }
 
 const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, onUpdateTransaction, onDeleteTransaction }) => {
+    // Helper to get local date string for datetime-local input (YYYY-MM-DDThh:mm)
+    const getLocalDateTime = () => {
+        const now = new Date();
+        const offsetMs = now.getTimezoneOffset() * 60000;
+        const localTime = new Date(now.getTime() - offsetMs);
+        return localTime.toISOString().slice(0, 16);
+    };
+
     const [item, setItem] = useState('');
     const [amount, setAmount] = useState('');
     const [paidFrom, setPaidFrom] = useState<AccountType>('cash');
-    // Initialize date with current time
-    const [dateTime, setDateTime] = useState(new Date().toISOString().slice(0, 16));
+    // Initialize date with current device time
+    const [dateTime, setDateTime] = useState(getLocalDateTime());
+
+    // Navigation State for viewing different months
+    const [viewDate, setViewDate] = useState(new Date());
 
     // Edit State
     const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -23,10 +34,18 @@ const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, o
     const [editDate, setEditDate] = useState('');
     const [editAccount, setEditAccount] = useState<AccountType>('cash');
 
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const monthName = now.toLocaleDateString('en-US', { month: 'long' });
+    const changeMonth = (offset: number) => {
+        const newDate = new Date(viewDate);
+        newDate.setMonth(newDate.getMonth() + offset);
+        setViewDate(newDate);
+    };
+
+    const currentMonth = viewDate.getMonth();
+    const currentYear = viewDate.getFullYear();
+    const monthName = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    // Check if we are viewing the current calendar month to allow adding items
+    const isCurrentCalendarMonth = new Date().getMonth() === currentMonth && new Date().getFullYear() === currentYear;
 
     const bazarTransactions = transactions.filter(t => {
       if (!t.date || t.category !== Category.BAZAR) return false;
@@ -54,7 +73,7 @@ const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, o
       setItem('');
       setAmount('');
       // Reset time to current device time for the next entry
-      setDateTime(new Date().toISOString().slice(0, 16));
+      setDateTime(getLocalDateTime());
     };
 
     const startEditing = (t: Transaction) => {
@@ -68,7 +87,7 @@ const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, o
             const localIso = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
             setEditDate(localIso);
         } catch (e) {
-            setEditDate(new Date().toISOString().slice(0, 16));
+            setEditDate(getLocalDateTime());
         }
         setEditAccount(t.accountId);
     };
@@ -189,79 +208,93 @@ const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, o
             </div>
          )}
 
+         {/* Month Navigation */}
+         <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm mb-6">
+            <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
+                <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="text-center">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{monthName}</p>
+            </div>
+            <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
+                <ChevronRight className="w-5 h-5" />
+            </button>
+         </div>
+
          <div className="mb-6 flex items-center justify-between">
            <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bazar List</h2>
-            <p className="text-gray-500 dark:text-gray-400">Add & View Daily Items</p>
+            <p className="text-gray-500 dark:text-gray-400">Items for {monthName}</p>
            </div>
            <div className="text-right">
-             <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Total ({monthName})</p>
+             <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Total</p>
              <p className="text-xl font-bold text-rose-600 dark:text-rose-400">Tk {totalBazarSpend.toLocaleString()}</p>
            </div>
          </div>
 
-         <form onSubmit={handleQuickAdd} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8">
-            <h3 className="font-medium text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-emerald-500" />
-              Quick Add Item
-            </h3>
-            <div className="flex flex-col gap-3">
-               <div className="flex gap-2">
-                 <input 
-                   type="text" 
-                   value={item}
-                   onChange={(e) => setItem(e.target.value)}
-                   placeholder="Item name (e.g. Vegetables)"
-                   className="flex-[2] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                   required
-                 />
-                 <input 
-                   type="number" 
-                   value={amount}
-                   onChange={(e) => setAmount(e.target.value)}
-                   placeholder="Cost"
-                   className="flex-1 min-w-[80px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                   required
-                   step="0.01"
-                 />
-               </div>
-               
-               <div className="flex flex-col sm:flex-row gap-3">
-                 <div className="flex-1 flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-1.5 border border-gray-200 dark:border-gray-600">
-                    <CalendarDays className="w-4 h-4 text-gray-400" />
-                    <input 
-                      type="datetime-local" 
-                      value={dateTime}
-                      onChange={(e) => setDateTime(e.target.value)}
-                      className="bg-transparent border-none outline-none text-sm text-gray-700 dark:text-gray-200 w-full"
-                      required
-                    />
-                 </div>
+         {isCurrentCalendarMonth && (
+             <form onSubmit={handleQuickAdd} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8">
+                <h3 className="font-medium text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-emerald-500" />
+                  Quick Add Item
+                </h3>
+                <div className="flex flex-col gap-3">
+                   <div className="flex gap-2">
+                     <input 
+                       type="text" 
+                       value={item}
+                       onChange={(e) => setItem(e.target.value)}
+                       placeholder="Item name (e.g. Vegetables)"
+                       className="flex-[2] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                       required
+                     />
+                     <input 
+                       type="number" 
+                       value={amount}
+                       onChange={(e) => setAmount(e.target.value)}
+                       placeholder="Cost"
+                       className="flex-1 min-w-[80px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                       required
+                       step="0.01"
+                     />
+                   </div>
+                   
+                   <div className="flex flex-col sm:flex-row gap-3">
+                     <div className="flex-1 flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-1.5 border border-gray-200 dark:border-gray-600">
+                        <CalendarDays className="w-4 h-4 text-gray-400" />
+                        <input 
+                          type="datetime-local" 
+                          value={dateTime}
+                          onChange={(e) => setDateTime(e.target.value)}
+                          className="bg-transparent border-none outline-none text-sm text-gray-700 dark:text-gray-200 w-full"
+                          required
+                        />
+                     </div>
 
-                 <div className="flex items-center gap-2">
-                   <select
-                      value={paidFrom}
-                      onChange={(e) => setPaidFrom(e.target.value as AccountType)}
-                      className="text-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-full sm:w-auto"
-                    >
-                      <option value="cash">Cash 💵</option>
-                      <option value="salary">Salary Acc 🏦</option>
-                      <option value="savings">Savings Acc 🐷</option>
-                    </select>
-                    <button type="submit" className="ml-auto bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium whitespace-nowrap">
-                      Add
-                    </button>
-                 </div>
-               </div>
-            </div>
-         </form>
+                     <div className="flex items-center gap-2">
+                       <select
+                          value={paidFrom}
+                          onChange={(e) => setPaidFrom(e.target.value as AccountType)}
+                          className="text-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-full sm:w-auto"
+                        >
+                          <option value="cash">Cash 💵</option>
+                          <option value="salary">Salary Acc 🏦</option>
+                          <option value="savings">Savings Acc 🐷</option>
+                        </select>
+                        <button type="submit" className="ml-auto bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium whitespace-nowrap">
+                          Add
+                        </button>
+                     </div>
+                   </div>
+                </div>
+             </form>
+         )}
 
          <div className="space-y-6">
-           <h3 className="font-medium text-gray-500 dark:text-gray-400 text-sm uppercase">Recent Shopping History</h3>
            {bazarTransactions.length === 0 ? (
              <div className="text-center py-10 text-gray-400 dark:text-gray-600">
                <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-50" />
-               <p>No bazar items yet this month</p>
+               <p>No bazar items recorded for this month</p>
              </div>
            ) : (
              <div className="space-y-6">
