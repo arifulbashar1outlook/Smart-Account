@@ -13,22 +13,25 @@ import {
   X,
   Check
 } from 'lucide-react';
-import { Transaction, Category, AccountType } from '../types';
+import { Transaction, Category, AccountType, Account } from '../types';
 
 interface LendingViewProps {
   transactions: Transaction[];
+  accounts: Account[];
   onAddTransaction: (t: Omit<Transaction, 'id'>) => void;
   onUpdateTransaction: (t: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
 }
 
-const LendingView: React.FC<LendingViewProps> = ({ transactions, onAddTransaction, onUpdateTransaction, onDeleteTransaction }) => {
+const LendingView: React.FC<LendingViewProps> = ({ transactions, accounts, onAddTransaction, onUpdateTransaction, onDeleteTransaction }) => {
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
+  const defaultCash = accounts.find(a => a.id === 'cash')?.id || accounts[0]?.id || '';
+
   // Transaction Form State within Detail View
   const [amount, setAmount] = useState('');
-  const [account, setAccount] = useState<AccountType>('cash');
+  const [account, setAccount] = useState<AccountType>(defaultCash);
   const [formMode, setFormMode] = useState<'lend' | 'recover'>('lend');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -41,7 +44,7 @@ const LendingView: React.FC<LendingViewProps> = ({ transactions, onAddTransactio
   const [editDesc, setEditDesc] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
-  const [editAccount, setEditAccount] = useState<AccountType>('cash');
+  const [editAccount, setEditAccount] = useState<AccountType>(defaultCash);
 
   // Helper to extract person name from transaction description
   const getPersonData = (t: Transaction) => {
@@ -307,9 +310,9 @@ const LendingView: React.FC<LendingViewProps> = ({ transactions, onAddTransactio
                                     onChange={(e) => setEditAccount(e.target.value as AccountType)}
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                                 >
-                                    <option value="cash">Cash</option>
-                                    <option value="salary">Salary</option>
-                                    <option value="savings">Savings</option>
+                                    {accounts.map(a => (
+                                        <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+                                    ))}
                                 </select>
                              </div>
                         </div>
@@ -397,9 +400,9 @@ const LendingView: React.FC<LendingViewProps> = ({ transactions, onAddTransactio
                         onChange={e => setAccount(e.target.value as AccountType)}
                         className="w-28 sm:w-36 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                      >
-                         <option value="cash">Cash</option>
-                         <option value="salary">Salary</option>
-                         <option value="savings">Savings</option>
+                        {accounts.map(a => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
                      </select>
                  </div>
                  <div className="flex gap-2">

@@ -1,5 +1,12 @@
 export type TransactionType = 'income' | 'expense' | 'transfer';
-export type AccountType = 'salary' | 'savings' | 'cash';
+export type AccountType = string;
+
+export interface Account {
+  id: string;
+  name: string;
+  emoji: string;
+  isDefault?: boolean;
+}
 
 export enum Category {
   FOOD = 'Food & Dining',
@@ -34,7 +41,5 @@ export interface FinancialSummary {
   totalExpenses: number;
   balance: number;
   savingsRate: number;
-  salaryAccountBalance: number;
-  savingsAccountBalance: number;
-  cashBalance: number;
+  // Specific balances are now handled dynamically via accountBalances map
 }

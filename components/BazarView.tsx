@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { ShoppingBag, Plus, CalendarDays, Clock, Trash2, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Transaction, Category, AccountType } from '../types';
+import { Transaction, Category, AccountType, Account } from '../types';
 
 interface BazarViewProps {
   transactions: Transaction[];
+  accounts: Account[];
   onAddTransaction: (t: Omit<Transaction, 'id'>) => void;
   onUpdateTransaction: (t: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
 }
 
-const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, onUpdateTransaction, onDeleteTransaction }) => {
+const BazarView: React.FC<BazarViewProps> = ({ transactions, accounts, onAddTransaction, onUpdateTransaction, onDeleteTransaction }) => {
     // Helper to get local date string for datetime-local input (YYYY-MM-DDThh:mm)
     const getLocalDateTime = () => {
         const now = new Date();
@@ -18,9 +19,11 @@ const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, o
         return localTime.toISOString().slice(0, 16);
     };
 
+    const defaultCash = accounts.find(a => a.id === 'cash')?.id || accounts[0]?.id || '';
+    
     const [item, setItem] = useState('');
     const [amount, setAmount] = useState('');
-    const [paidFrom, setPaidFrom] = useState<AccountType>('cash');
+    const [paidFrom, setPaidFrom] = useState<AccountType>(defaultCash);
     // Initialize date with current device time
     const [dateTime, setDateTime] = useState(getLocalDateTime());
 
@@ -32,7 +35,7 @@ const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, o
     const [editDesc, setEditDesc] = useState('');
     const [editAmount, setEditAmount] = useState('');
     const [editDate, setEditDate] = useState('');
-    const [editAccount, setEditAccount] = useState<AccountType>('cash');
+    const [editAccount, setEditAccount] = useState<AccountType>(defaultCash);
 
     const changeMonth = (offset: number) => {
         const newDate = new Date(viewDate);
@@ -174,9 +177,9 @@ const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, o
                                     onChange={(e) => setEditAccount(e.target.value as AccountType)}
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                                 >
-                                    <option value="cash">Cash</option>
-                                    <option value="salary">Salary</option>
-                                    <option value="savings">Savings</option>
+                                    {accounts.map(a => (
+                                        <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+                                    ))}
                                 </select>
                              </div>
                         </div>
@@ -277,9 +280,9 @@ const BazarView: React.FC<BazarViewProps> = ({ transactions, onAddTransaction, o
                           onChange={(e) => setPaidFrom(e.target.value as AccountType)}
                           className="text-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-full sm:w-auto"
                         >
-                          <option value="cash">Cash 💵</option>
-                          <option value="salary">Salary Acc 🏦</option>
-                          <option value="savings">Savings Acc 🛡️</option>
+                          {accounts.map(a => (
+                                <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+                           ))}
                         </select>
                         <button type="submit" className="ml-auto bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium whitespace-nowrap">
                           Add

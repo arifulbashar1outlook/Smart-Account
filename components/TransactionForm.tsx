@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
 import { PlusCircle, Loader2, Sparkles, ArrowRightLeft, Banknote } from 'lucide-react';
-import { Transaction, TransactionType, Category, AccountType } from '../types';
+import { Transaction, TransactionType, Category, AccountType, Account } from '../types';
 import { categorizeDescription } from '../services/geminiService';
 
 interface TransactionFormProps {
   onAddTransaction: (t: Omit<Transaction, 'id'>) => void;
+  accounts: Account[];
 }
 
-const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction }) => {
+const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, accounts }) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<TransactionType | 'withdrawal'>('expense');
   const [category, setCategory] = useState<string>(Category.FOOD);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [accountId, setAccountId] = useState<AccountType>('salary');
-  const [targetAccountId, setTargetAccountId] = useState<AccountType>('savings');
+  
+  // Default to first account or 'salary' if exists
+  const defaultAccount = accounts.find(a => a.id === 'salary')?.id || accounts[0]?.id || '';
+  const defaultTarget = accounts.find(a => a.id === 'savings')?.id || accounts[1]?.id || accounts[0]?.id || '';
+  const defaultCash = accounts.find(a => a.id === 'cash')?.id || '';
+
+  const [accountId, setAccountId] = useState<AccountType>(defaultAccount);
+  const [targetAccountId, setTargetAccountId] = useState<AccountType>(defaultTarget);
   const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -29,7 +36,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction }) =
     if (type === 'withdrawal') {
       finalType = 'transfer';
       finalCategory = Category.TRANSFER;
-      finalTargetAccountId = 'cash' as AccountType;
+      finalTargetAccountId = defaultCash; // Default withdrawal target is Cash
       finalDescription = description || 'Cash Withdrawal';
     } else if (type === 'transfer') {
       finalType = 'transfer';
@@ -84,7 +91,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction }) =
         >
           Expense
         </button>
-        {/* Income removed as per request */}
         <button
           type="button"
           onClick={() => setType('transfer')}
@@ -96,17 +102,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction }) =
         >
           Transfer
         </button>
-        <button
-          type="button"
-          onClick={() => setType('withdrawal')}
-          className={`flex-1 min-w-[70px] py-2 text-xs md:text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
-            type === 'withdrawal' 
-              ? 'bg-white dark:bg-gray-600 text-amber-600 dark:text-amber-400 shadow-sm' 
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-          }`}
-        >
-          Withdraw
-        </button>
+        {defaultCash && (
+            <button
+            type="button"
+            onClick={() => setType('withdrawal')}
+            className={`flex-1 min-w-[70px] py-2 text-xs md:text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                type === 'withdrawal' 
+                ? 'bg-white dark:bg-gray-600 text-amber-600 dark:text-amber-400 shadow-sm' 
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+            >
+            Withdraw
+            </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -148,8 +156,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction }) =
                 onChange={(e) => setAccountId(e.target.value as AccountType)}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
-                <option value="salary">Salary Account</option>
-                <option value="savings">Savings Account</option>
+                {accounts.filter(a => a.id !== defaultCash).map(a => (
+                    <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+                ))}
               </select>
              </div>
              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -169,9 +178,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction }) =
               onChange={(e) => setAccountId(e.target.value as AccountType)}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
-              <option value="salary">Salary Account</option>
-              <option value="savings">Savings Account</option>
-              <option value="cash">Cash</option>
+              {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+              ))}
             </select>
            </div>
            <div className="flex flex-col items-center justify-center pt-5 md:pt-0">
@@ -184,9 +193,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction }) =
               onChange={(e) => setTargetAccountId(e.target.value as AccountType)}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
-              <option value="savings">Savings Account</option>
-              <option value="salary">Salary Account</option>
-              <option value="cash">Cash</option>
+              {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+              ))}
             </select>
            </div>
         </div>
@@ -202,14 +211,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction }) =
               onChange={(e) => setAccountId(e.target.value as AccountType)}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
-              <option value="salary">Salary Account</option>
-              <option value="savings">Savings Account</option>
-              <option value="cash">Cash</option>
+              {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+              ))}
             </select>
         </div>
       )}
 
-      {/* Description & Category - Hide Category for Transfer/Withdrawal, but show Description for Withdrawal (optional) */}
+      {/* Description & Category */}
       <div className="space-y-4 mb-6">
         <div className="relative flex gap-2">
           <input

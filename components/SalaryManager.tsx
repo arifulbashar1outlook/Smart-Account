@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
 import { Plus, ArrowDownCircle, Wallet, ArrowRight, CalendarDays } from 'lucide-react';
-import { Transaction, AccountType, Category } from '../types';
+import { Transaction, AccountType, Category, Account } from '../types';
 
 interface SalaryManagerProps {
   onAddTransaction: (t: Omit<Transaction, 'id'>) => void;
+  accounts: Account[];
 }
 
-const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
+const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction, accounts }) => {
   const [activeTab, setActiveTab] = useState<'salary' | 'received'>('salary');
   
   // Salary State
   const [salaryAmount, setSalaryAmount] = useState<string>('');
+  
+  // Default salary to the 'salary' id if present, else first account
+  const defaultSalaryAcc = accounts.find(a => a.id === 'salary')?.id || accounts[0]?.id;
+  const [salaryTarget, setSalaryTarget] = useState<string>(defaultSalaryAcc || '');
 
   // Received Money State
   const [receivedAmount, setReceivedAmount] = useState('');
   const [receivedDesc, setReceivedDesc] = useState('');
-  const [receivedDestination, setReceivedDestination] = useState<AccountType>('cash');
+  const [receivedDestination, setReceivedDestination] = useState<AccountType>(accounts.find(a => a.id === 'cash')?.id || accounts[0]?.id);
 
   // Shared Date State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -23,8 +28,10 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
   const handleAddSalary = () => {
     if (!salaryAmount) return;
 
+    const accName = accounts.find(a => a.id === salaryTarget)?.name || 'Salary Account';
+
     // Protection against accidental touches
-    const confirmMsg = `Are you sure you want to add Tk ${parseFloat(salaryAmount).toLocaleString()} to your Salary Account?`;
+    const confirmMsg = `Are you sure you want to add Tk ${parseFloat(salaryAmount).toLocaleString()} to ${accName}?`;
     if (!window.confirm(confirmMsg)) {
         return;
     }
@@ -35,7 +42,7 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
       category: Category.SALARY,
       description: 'Monthly Salary',
       date: date,
-      accountId: 'salary' // Fixed to Salary Account as requested
+      accountId: salaryTarget 
     });
 
     setSalaryAmount(''); // Clear input after adding
@@ -115,10 +122,18 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
                     Add
                   </button>
                </div>
-               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center gap-1">
-                  <ArrowRight className="w-3 h-3" /> 
-                  Will be added to <strong>Salary Account</strong>
-               </p>
+               <div className="mt-2">
+                   <label className="text-xs text-gray-500 dark:text-gray-400 mr-2">Target Account:</label>
+                   <select 
+                     value={salaryTarget}
+                     onChange={(e) => setSalaryTarget(e.target.value)}
+                     className="text-xs border-none bg-transparent outline-none font-medium text-gray-700 dark:text-gray-300"
+                   >
+                       {accounts.map(a => (
+                           <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+                       ))}
+                   </select>
+               </div>
             </div>
           </div>
         )}
@@ -169,9 +184,9 @@ const SalaryManager: React.FC<SalaryManagerProps> = ({ onAddTransaction }) => {
                     onChange={(e) => setReceivedDestination(e.target.value as AccountType)}
                     className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   >
-                    <option value="cash">Cash 💵</option>
-                    <option value="salary">Salary Account 🏦</option>
-                    <option value="savings">Savings Account 🛡️</option>
+                    {accounts.map(a => (
+                        <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+                    ))}
                   </select>
                </div>
              </div>

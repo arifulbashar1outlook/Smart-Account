@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { History, Receipt, TrendingUp, TrendingDown, ArrowRightLeft, Trash2, X, Check, CalendarDays, FilterX, CalendarRange, Calendar } from 'lucide-react';
-import { Transaction, AccountType, Category, TransactionType } from '../types';
+import { Transaction, AccountType, Category, TransactionType, Account } from '../types';
 
 interface HistoryViewProps {
   transactions: Transaction[];
+  accounts: Account[];
   onUpdateTransaction: (t: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
 }
 
-const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransaction, onDeleteTransaction }) => {
+const HistoryView: React.FC<HistoryViewProps> = ({ transactions, accounts, onUpdateTransaction, onDeleteTransaction }) => {
     // Filter State
     const [filterType, setFilterType] = useState<'date' | 'month'>('date');
     const [selectedDate, setSelectedDate] = useState('');
@@ -19,7 +20,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
     const [editDesc, setEditDesc] = useState('');
     const [editAmount, setEditAmount] = useState('');
     const [editDate, setEditDate] = useState('');
-    const [editAccount, setEditAccount] = useState<AccountType>('cash');
+    const [editAccount, setEditAccount] = useState<AccountType>(accounts[0]?.id || '');
     const [editCategory, setEditCategory] = useState<string>('');
     const [editType, setEditType] = useState<TransactionType>('expense');
 
@@ -89,6 +90,11 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
         }
     };
 
+    // Helper to get account name by ID
+    const getAccountName = (id: string) => {
+        return accounts.find(a => a.id === id)?.name || id;
+    };
+
     return (
        <div className="max-w-3xl mx-auto px-4 py-8 pb-24 relative">
          {/* Edit Modal */}
@@ -142,9 +148,9 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
                                     onChange={(e) => setEditAccount(e.target.value as AccountType)}
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                                 >
-                                    <option value="salary">Salary</option>
-                                    <option value="savings">Savings</option>
-                                    <option value="cash">Cash</option>
+                                    {accounts.map(a => (
+                                        <option key={a.id} value={a.id}>{a.name}</option>
+                                    ))}
                                 </select>
                              </div>
                              <div>
@@ -307,8 +313,8 @@ const HistoryView: React.FC<HistoryViewProps> = ({ transactions, onUpdateTransac
                                                     <div className="flex gap-2 text-xs text-gray-500">
                                                         <span>{t.category}</span>
                                                         <span>•</span>
-                                                        <span className="capitalize">{t.accountId}</span>
-                                                        {t.type === 'transfer' && t.targetAccountId && <span>→ {t.targetAccountId}</span>}
+                                                        <span className="capitalize">{getAccountName(t.accountId)}</span>
+                                                        {t.type === 'transfer' && t.targetAccountId && <span>→ {getAccountName(t.targetAccountId)}</span>}
                                                     </div>
                                                 </div>
                                             </div>
