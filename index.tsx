@@ -12,11 +12,17 @@ interface ErrorBoundaryState {
 }
 
 // Simple Error Boundary to catch runtime crashes and display them
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public props: ErrorBoundaryProps;
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null
   };
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.props = props;
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };

@@ -422,9 +422,20 @@ const FullMonthlyReport: React.FC<FullMonthlyReportProps> = ({ transactions }) =
 
         // Group Expenses by Category
         const expensesByCategory: Record<string, number> = {};
+        const transactionsByCategory: Record<string, Transaction[]> = {};
+
         thisMonthTxs.filter(t => t.type === 'expense').forEach(t => {
             const cat = t.category || 'Other';
             expensesByCategory[cat] = (expensesByCategory[cat] || 0) + t.amount;
+            
+            // Add to transaction list for this category
+            if (!transactionsByCategory[cat]) transactionsByCategory[cat] = [];
+            transactionsByCategory[cat].push(t);
+        });
+        
+        // Sort transactions within each category by Date DESC
+        Object.keys(transactionsByCategory).forEach(cat => {
+            transactionsByCategory[cat].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         });
 
         const sortedCategories = Object.entries(expensesByCategory).sort((a,b) => b[1] - a[1]);
@@ -434,28 +445,11 @@ const FullMonthlyReport: React.FC<FullMonthlyReportProps> = ({ transactions }) =
             totalExpense,
             totalWithdrawals,
             sortedCategories,
+            transactionsByCategory,
             count: thisMonthTxs.length,
             txs: thisMonthTxs
         };
     }, [transactions, currentMonth, currentYear]);
-
-    // Group transactions by date for detailed list
-    const dailyBreakdown = useMemo(() => {
-        const groups: Record<string, { income: number, expense: number, items: Transaction[] }> = {};
-        
-        monthlyData.txs.forEach(t => {
-            const dateKey = t.date.split('T')[0];
-            if (!groups[dateKey]) groups[dateKey] = { income: 0, expense: 0, items: [] };
-            
-            groups[dateKey].items.push(t);
-            if (t.type === 'income') groups[dateKey].income += t.amount;
-            else if (t.type === 'expense') groups[dateKey].expense += t.amount;
-        });
-
-        return Object.entries(groups)
-            .map(([date, data]) => ({ date, ...data }))
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [monthlyData.txs]);
 
     return (
         <div className="max-w-2xl mx-auto px-4 py-8 pb-24 relative">
@@ -504,64 +498,46 @@ const FullMonthlyReport: React.FC<FullMonthlyReportProps> = ({ transactions }) =
             </div>
 
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3 pl-1 text-sm uppercase tracking-wide">Categorical Breakdown</h3>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-8">
+            <div className="space-y-4 mb-8">
                 {monthlyData.sortedCategories.length > 0 ? (
-                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {monthlyData.sortedCategories.map(([cat, amount]) => (
-                            <div key={cat} className="flex justify-between items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                <span className="font-medium text-gray-700 dark:text-gray-200">{cat}</span>
-                                <span className="font-bold text-gray-900 dark:text-white">Tk {amount.toLocaleString()}</span>
-                            </div>
-                        ))}
-                         <div className="p-4 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center border-t border-gray-100 dark:border-gray-700">
-                            <span className="font-bold text-gray-900 dark:text-white uppercase text-sm">Total</span>
-                            <span className="font-bold text-rose-600 dark:text-rose-400">Tk {monthlyData.totalExpense.toLocaleString()}</span>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="p-8 text-center text-gray-400 dark:text-gray-500">
-                        No expenses recorded for this month.
-                    </div>
-                )}
-            </div>
-
-            {/* Detailed Daily Log */}
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 pl-1 text-sm uppercase tracking-wide">Daily Transaction Log</h3>
-            <div className="space-y-4">
-                {dailyBreakdown.length > 0 ? dailyBreakdown.map((day) => (
-                    <div key={day.date} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div className="bg-gray-50/80 dark:bg-gray-900/50 p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                             <div className="flex items-center gap-2">
-                                 <CalendarDays className="w-4 h-4 text-gray-400" />
-                                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                    {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                 </span>
-                             </div>
-                             <div className="flex gap-3 text-xs">
-                                {day.income > 0 && <span className="text-emerald-600 font-bold">+{day.income.toLocaleString()}</span>}
-                                {day.expense > 0 && <span className="text-rose-600 font-bold">-{day.expense.toLocaleString()}</span>}
-                             </div>
-                        </div>
-                        <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                            {day.items.map((t) => (
-                                <div key={t.id} className="p-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${t.type === 'income' ? 'bg-emerald-500' : t.type === 'expense' ? 'bg-rose-500' : 'bg-blue-500'}`}></div>
-                                        <div>
-                                            <p className="text-sm text-gray-800 dark:text-gray-200">{t.description}</p>
-                                            <p className="text-[10px] text-gray-400">{t.category} • {t.accountId}</p>
-                                        </div>
-                                    </div>
-                                    <span className={`text-sm font-medium ${t.type === 'income' ? 'text-emerald-600' : t.type === 'expense' ? 'text-rose-600' : 'text-gray-600 dark:text-gray-400'}`}>
-                                        {t.amount.toLocaleString()}
+                    monthlyData.sortedCategories.map(([cat, amount]) => (
+                        <div key={cat} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                             {/* Category Header */}
+                             <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 cursor-pointer">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-gray-800 dark:text-gray-200">{cat}</span>
+                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                                        {monthlyData.transactionsByCategory[cat].length}
                                     </span>
                                 </div>
-                            ))}
+                                <span className="font-bold text-gray-900 dark:text-white">Tk {amount.toLocaleString()}</span>
+                            </div>
+                            
+                            {/* Transactions List */}
+                            <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                {monthlyData.transactionsByCategory[cat].map(t => (
+                                    <div key={t.id} className="p-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-center w-10">
+                                                 <div className="text-xs font-bold text-gray-500 dark:text-gray-400">{new Date(t.date).getDate()}</div>
+                                                 <div className="text-[10px] text-gray-400 uppercase">{new Date(t.date).toLocaleDateString('en-US', {month:'short'})}</div>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-gray-800 dark:text-gray-200">{t.description}</p>
+                                                <p className="text-[10px] text-gray-400 capitalize">{t.accountId}</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                                            {t.amount.toLocaleString()}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )) : (
-                    <div className="text-center py-8 text-gray-400 dark:text-gray-600 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
-                        No transactions found for this month.
+                    ))
+                ) : (
+                    <div className="p-8 text-center text-gray-400 dark:text-gray-500 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                        No expenses recorded for this month.
                     </div>
                 )}
             </div>
