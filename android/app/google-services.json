@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "166029346",
+    "project_id": "smartspent-43f3d",
+    "storage_bucket": "smartspent-43f3d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:166029346:android:5d05d2b240e1996a7b827b",
+        "android_client_info": {
+          "package_name": "com.smartspend.tracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "166029346-flb321j4g280plc50rh7mcunqmiagkdo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDL7lSWv-ualJKvii4S8gBuaDROBBRPDkw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "166029346-flb321j4g280plc50rh7mcunqmiagkdo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
